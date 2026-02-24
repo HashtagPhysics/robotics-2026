@@ -39,7 +39,8 @@ public class Robot extends TimedRobot {
   SparkMax driveLeftB = new SparkMax(3,MotorType.kBrushed);
   SparkMax driveRightA = new SparkMax(4,MotorType.kBrushed);
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
-  SparkMax turningArm = new SparkMax(6, MotorType.kBrushed);
+  SparkMax launcherMotor = new SparkMax(6, MotorType.kBrushed);
+  SparkMax hopperMotor = new SparkMax(7, MotorType.kBrushed);
 
   //cts
   private void setLeftSpeed(double speed)
@@ -69,7 +70,8 @@ public class Robot extends TimedRobot {
     driveLeftB.set(0.0);
     driveRightA.set(0.0);
     driveRightB.set(0.0);
-    turningArm.set(0.0);
+    launcherMotor.set(0.0);
+    hopperMotor.set(0.0);
 
     // Only display message on first call
     if (DisplaySafeState) {
@@ -128,7 +130,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    /* Set up our motor settigns*/
+    /* Set up our motor settings*/
 
     CameraServer.startAutomaticCapture(0);
     
@@ -680,12 +682,12 @@ public class Robot extends TimedRobot {
           case EJECT:
             if (forward){
               /* Eject Coral */
-              turningArm.set(motorCommand);
+              launcherMotor.set(motorCommand);
               System.out.println("Ejecting: " + motorCommand);
       
             } else {
               /* Spin Ejector Backwards */
-              turningArm.set(-motorCommand);
+              launcherMotor.set(-motorCommand);
               System.out.println("Reverse Ejecting: " + motorCommand);
             }
             break;
@@ -754,7 +756,7 @@ public class Robot extends TimedRobot {
     //Turning speed Control only change in the IF commands
     double turningSpeed = 0;
     //^^^^ Dont change this one
-    //turningArm.set(opController.getTwist());
+    //launcherMotor.set(opController.getTwist());
     //CTS
     if(opController.getRawButton(5))
     {
@@ -782,7 +784,7 @@ public class Robot extends TimedRobot {
       //Do not change away from 0 
       turningSpeed = 0;
     }
-    turningArm.set(turningSpeed);
+    launcherMotor.set(turningSpeed);
   }
 
   /** This function is called once when the robot is disabled. */
