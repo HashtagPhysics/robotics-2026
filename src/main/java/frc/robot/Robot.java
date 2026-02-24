@@ -22,6 +22,10 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
+
+import org.opencv.core.Mat;
+
+import com.fasterxml.jackson.annotation.JsonCreator.Mode;
 import com.revrobotics.spark.SparkBase;
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -37,22 +41,64 @@ public class Robot extends TimedRobot {
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
   SparkMax turningArm = new SparkMax(6, MotorType.kBrushed);
 
-
-//cts
+  //cts
   private void setLeftSpeed(double speed)
   {
     //Change bias to offset drift on Motors
     //Don't change bias more than between .9 and 1.1
     double leftWheelBias = 1.07;
-    driveLeftA.set(-speed * leftWheelBias);
-    driveLeftB.set(-speed * leftWheelBias);
+    driveLeftA.set(speed * leftWheelBias);
+    driveLeftB.set(speed * leftWheelBias);
   };
   private void setRightSpeed(double speed)
   {
-    driveRightA.set(-speed);
-    driveRightB.set(-speed);
+    driveRightA.set(speed);
+    driveRightB.set(speed);
   };
 
+  public void setSafetyFault(String message)
+  {
+      safetyFaultActive = true;
+      System.err.println("Error: "+ message);
+  }
+
+  public void safeState() {
+    // Disable all motors
+    // This function is used to set the robot to a safe state without disabling it
+    driveLeftA.set(0.0);
+    driveLeftB.set(0.0);
+    driveRightA.set(0.0);
+    driveRightB.set(0.0);
+    turningArm.set(0.0);
+
+    // Only display message on first call
+    if (DisplaySafeState) {
+      System.err.println("Safe State: All motors set to zero.");
+      DisplaySafeState = false;
+    }
+  }
+
+  private double k_MotorSpeed(double motorSpeed) {
+    // Add voltage compensation logic later, if needed
+
+    double k;
+
+    // Calibrate: factor k = speed in inches per second / motor speed command
+    if (motorSpeed < 0.4) { 
+      k = 129;
+    } else {
+      k = 19.37 * motorSpeed + 96.39;
+    }
+    
+    double k_default = 150; // only returned in case of error
+
+    if (k == 0) {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: k_MotorSpeed() returned zero!");
+      k = k_default;
+    }
+    return k;
+  }
 
   /* Motoin FIlters */
   SlewRateLimiter driveFilter = new SlewRateLimiter(4);
@@ -63,6 +109,8 @@ public class Robot extends TimedRobot {
   Joystick opController = new Joystick(1);
 
   /* Global variables */
+  boolean safetyFaultActive = false;
+  boolean DisplaySafeState = true;
   double driveFactor = 0.6;
   double autoStart = 0;
   private static final String kDefaultAuto = "Default";
@@ -70,11 +118,8 @@ public class Robot extends TimedRobot {
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
   
-  
-  
-  SparkMaxConfig config = new SparkMaxConfig();
   SparkMaxConfig configInverted = new SparkMaxConfig();
-  
+  SparkMaxConfig config = new SparkMaxConfig();
   SparkBase.ResetMode resetMode;
   SparkBase.PersistMode persistMode;
   /**
@@ -83,13 +128,10 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    
-    /* Start the camera server */
+    /* Set up our motor settigns*/
+
     CameraServer.startAutomaticCapture(0);
-
-    /* Set up our motor settings*/
-
-    // Applies SparkMax settings to both left and right motors; left motors are inverted to ensure correct drive direction.
+    
     //Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
     configInverted.idleMode(IdleMode.kBrake);
@@ -100,8 +142,7 @@ public class Robot extends TimedRobot {
     driveLeftB.configure(configInverted, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     driveRightA.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     driveRightB.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
-    
-
+  
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
@@ -115,9 +156,197 @@ public class Robot extends TimedRobot {
    * SmartDashboard integrated updating.
    */
   @Override
-  public void robotPeriodic() {
+  public void robotPeriodic() {}
 
-  }
+  /* Autonomous Mode Global Definitions */
+  private double loop_s; 
+  private double k; 
+
+  /* These are the available routines and drive modes */
+  private enum startLoc {TEST, LEFT, CENTER, RIGHT};
+  private enum driveMode { DRIVE, TURN, EJECT, PAUSE }
+  
+  // Autonomous global variables
+  private double t_max_autonomous = 15;  // max step time cannot exceed autonomous time, safety measure
+  private double accel_rate, motorCommand = 0; // set elsewhere
+  private double velocity_target = 0;
+  private int numSteps;
+  private boolean stepInitialized[], forward, AutonomousComplete = false, TimerStarted; 
+  private driveMode Mode[];
+  private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step_up, M_step_down;
+  private int stepIdx;
+
+  // Calibrate: Set robot track width in inches
+  private double trackwidth = 21.5;
+
+  // Calibrate: Motor start and stop commands
+  // These are the initial and final motor command targets
+  // to overcome friction and inertia
+  private double motorCommand_start = 0; // 0 to 0.3
+  private double motorCommand_stop = 0;  // -0.3 to 0
+
+  /* The Autonomous Routines are defined here */
+
+    // Calibrate: TEST Autonomous Routine
+    private driveMode[] testModes = {
+      driveMode.DRIVE,
+      driveMode.EJECT,
+      driveMode.DRIVE,
+      driveMode.PAUSE,
+      driveMode.TURN
+    };
+    
+    private double[] testMagnitudes = {
+      64.75,  // stop just before the reef 79
+      40,     // Eject
+      -64.75, // Return to start
+      5,      // Pause
+      90     // right 90 degrees
+    };
+  
+    /* motor command for each step */
+    private double[] testMotorCommands = {
+      0.6,
+      0.4,
+      0.6,
+      0.5,
+      0.25  
+    };
+
+  // Calibrate: LEFT Autonomous Routine
+  private driveMode[] leftModes = {
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    /* driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.PAUSE,
+    driveMode.DRIVE,
+    driveMode.EJECT*/
+  };
+  
+  private double[] leftMagnitudes = {
+    60,   // forward inches
+    58,   // right degrees
+    64,   // forward inches 
+    40,   // eject "inches"
+    /* -90,  // reverse inches
+    -55,  // left degrees
+    170,  // forward inches
+    124,  // right degrees
+    -28,  // reverse inches
+    5,    // WAIT seconds
+    122,  // forward inches
+    40    // eject "inches" */
+  };
+
+  /* motor command for each step */
+  private double[] leftMotorCommands = {
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.4, // EJECT
+    /* 0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE 
+    0.5,   // PAUSE
+    0.5, // DRIVE
+    0.4  // EJECT*/
+  };
+
+  // Calibrate: CENTER Autonomous Routine
+  private driveMode[] centerModes = {
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.PAUSE,
+    driveMode.DRIVE,
+    driveMode.EJECT
+  };
+  
+  private double[] centerMagnitudes = {
+    65,   // Forward inches
+    40,   // eject "inches"
+    -70,  // reverse inches
+    28,   // right degrees
+    255,  // forward inches
+    -154, // left degrees
+    -13,  // reverse inches
+    5,    // WAIT "seconds"
+    120,  // forward inches
+    40    // eject "inches"
+  };
+
+  /* motor command for each step */
+  private double[] centerMotorCommands = {
+    0.5,
+    0.4,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.4
+  };
+
+  // Calibrate: RIGHT Autonomous Routine
+  private driveMode[] rightModes = {
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    /* driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.PAUSE,
+    driveMode.DRIVE,
+    driveMode.EJECT */
+  };
+  
+  private double[] rightMagnitudes = {
+    60,   // forward inches
+    -58,  // left degrees
+    64,   // forward inches 
+    40,   // eject "inches"
+    /* -90,  // reverse inches
+    55,   // right degrees
+    170,  // forward inches
+    -124, // left degrees
+    -28,  // reverse inches
+    5,    // WAIT seconds
+    122,  // forward inches
+    40    // eject "inches" */
+  };
+
+  /* motor command for each step */
+  private double[] rightMotorCommands = {
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.4, // EJECT
+    /* 0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE 
+    0.5,   // PAUSE
+    0.5, // DRIVE
+    0.4  // EJECT */
+  };
 
   /**
    * This autonomous (along with the chooser code above) shows how to select between different
@@ -131,85 +360,362 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    m_autoSelected = m_chooser.getSelected();
+    //m_autoSelected = m_chooser.getSelected(); // is this used?
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
-    System.out.println("Auto selected: " + m_autoSelected);
+    //System.out.println("Auto selected: " + m_autoSelected);
 
-    autoStart = Timer.getFPGATimestamp();
+    // Reset safety faults
+    safetyFaultActive = false;
+
+    // Initialize the routine step counter
+    stepIdx = 0;
+    
+    // Calibrate: Pick a routine
+    startLoc routine = startLoc.TEST;
+    System.out.println(routine + " Routine Loaded");
+    
+    // Load the autonomous routine
+    switch (routine) {
+
+      case TEST:
+        Mode = testModes;
+        Magnitude = testMagnitudes;
+        MotorCommands = testMotorCommands;
+        break;
+      
+      case LEFT:
+        Mode = leftModes;
+        Magnitude = leftMagnitudes;
+        MotorCommands = leftMotorCommands;
+        break;
+        
+      case CENTER:
+        Mode = centerModes;
+        Magnitude = centerMagnitudes;
+        MotorCommands = centerMotorCommands;
+        break;
+
+      case RIGHT:
+        Mode = rightModes;
+        Magnitude = rightMagnitudes;
+        MotorCommands = rightMotorCommands;
+        break;
+
+      default:
+      setSafetyFault("Routine not defined");
+        break;
+    }
+
+    numSteps = Mode.length;
+
+    // Print the values to the console:
+    System.out.println("Number of steps: " + numSteps);
+
+    // Initialize array to false (default)
+    stepInitialized = new boolean[numSteps];
+    
+    // Initialize start time
+    stepStartTime = new double[numSteps];
+
+    // Initialize the motor command to zero
+    motorCommand = 0;
+
   }
 
   /** This function is called periodically during autonomous. */
   //CTS
   @Override
   public void autonomousPeriodic() {
-    double autoElapsed = Timer.getFPGATimestamp() - autoStart;
 
-    // Drive Motor Control
-    if(autoElapsed <= 2.168)
-    {
-      // Drive up to reef
-      setLeftSpeed(-0.25);
-      setRightSpeed(-0.25);
-    }
-    else if (autoElapsed <= 3.25)
-    {
-      //wait period
-      setLeftSpeed(0);
-      setRightSpeed(0);
-    }
-    else if (autoElapsed <= 4)
-    {
-      // Drop coral in reef
-      turningArm.set(.34);
-    }
-    else if (autoElapsed <= 4.5)
-    {
-      //wait period
-      setLeftSpeed(0);
-      setRightSpeed(0);
-    }
-    else if(autoElapsed <= 6 )
-    {
-      setLeftSpeed(0.25);
-      setRightSpeed(0.25);
-      turningArm.set(0);
-    }
-//left negative = left human player
-    else if(autoElapsed <= 9.25)
-    {
-      //Turns Field Left
-      //setLeftSpeed(0.25);
-      //setRightSpeed(-0.25);
+    // Initialize variables
+    // These values get overwritten
+    double v_max = 0;
+    double distance = 0;
+    double stepTime;
 
-      //Turns right
-      setLeftSpeed(-0.25);
-      setRightSpeed(0.25);
+
+    // Check for end of routine
+    // index starts at zero and increments to (numSteps - 1)
+    if (stepIdx >= numSteps) {
+      safeState(); // Set all motors to zero
+      
+      // Display complete message once
+      if (!AutonomousComplete) {
+        System.out.println("All Steps Complete");
+        AutonomousComplete = true;
+      }
+      return;
     }
-    else 
-    {
-      // Stop driving
-      setLeftSpeed(0);
-      setRightSpeed(0);
-    }
+
+    // Initialize the drive or turn calculation
+    if (!stepInitialized[stepIdx]) {
+      
+      // Log
+      System.out.println("Initializing Step " + (stepIdx+1) + " of " + numSteps + ": " + Mode[stepIdx]);
+
+      /* Negative motor speed commands are not supported here
+      To drive backwards, command negative distance
+      To turn left, command negative angle */
+      if (MotorCommands[stepIdx] <= 0) {
+        setSafetyFault("Motor command is negative in drive or turn function");
+      }
+
+      /* These variables may or may not change in each periodic, but are calculated again here, just in case*/
+      loop_s = getPeriod(); 
+      k = k_MotorSpeed(MotorCommands[stepIdx]);
+
+      //System.out.println("looptime: " + loop_s);
+      System.out.println("Motor Conversion k: " + k);
+
+
+      /* Convert negative distance to direction */
+      forward = true;
+      if (Magnitude[stepIdx] < 0) {
+        // backwards
+        forward = false;
+      }
+      Magnitude[stepIdx] = Math.abs(Magnitude[stepIdx]);
+
+      System.out.println("Magnitude: " + Magnitude[stepIdx]);
+      System.out.println("Motor Command: " + MotorCommands[stepIdx]);
+
+      /* Convert motor speed command to inches per second */
+      double v_command_ips = k * MotorCommands[stepIdx];
+
+      //System.out.println("Velocity Command: " + v_command_ips + " in/s");
+
+      /* Define wheel distance to travel */
+      switch (Mode[stepIdx]) {
+          case DRIVE:
+          
+            /* DRIVE works in terms of distance
+            (both wheels moving together) */
+            distance = Magnitude[stepIdx];
+
+            /* Calibrate: Max without prevent slipping 
+            acceleration rate for DRIVE steps
+            should be between 100 and 600 */
+            accel_rate = 300;
+            break;
+          
+          case TURN:
+
+            /* Calibrate: Max without prevent slipping 
+            acceleration rate for TURN steps
+            should be between 100 and 600 */
+            accel_rate = 300;
+
+            /* TURN works in terms of angle which converts to distance (arclength)
+            (wheels turning in opposite directions) */
+            // TEMPORARY ADJUSTMENT * 3.11
+            distance = (trackwidth * Math.PI * 3.11 * Magnitude[stepIdx]) / 360.0;
+            break;
+
+          case EJECT:
+            /* No ramp needed for ejecting */
+            accel_rate = 9999;
+
+            /* For simplicity, EJECT magnitude is actually 
+            calculated as a distance, same as the other drive modes */
+            distance = Magnitude[stepIdx];            
+            break;
+
+          case PAUSE:
+          
+            /* PAUSE is not actually distance, but time instead */
+            distance = Magnitude[stepIdx];
+            
+            /* Not applicable to PAUSE */
+            accel_rate = 9999;
+            break;
+
+        default:
+          distance = Magnitude[stepIdx];
+          accel_rate = 9999;
+          setSafetyFault("Unknown Drive State");
+          break;              
+      }
+
+      System.out.println("Accel Rate: " + accel_rate + " in/s/s");
+      System.out.println("Distance Comnand: " + distance + " in");
+
+      /* Convert acceleration rate to motor step per loop */
+      M_step_up = (accel_rate / k - motorCommand_start) * loop_s;
+      M_step_down = (accel_rate / k - motorCommand_stop) * loop_s;
+
+      //System.out.println("Motor Step Up: " + M_step_up + " per loop");
+      //System.out.println("Motor Step Down: " + M_step_down + " per loop");
+
+      /* This adjustment factor accounts for estimated error in the ramp rate function
+      If controller loop rate is changed, this factor will change */
+      distance = distance + 1.65 * MotorCommands[stepIdx];
+
+      //System.out.println("Adjusted distance: " + distance + " in");      
+      
+      /* Maximum velocity that can be achieved in the distance given
+      assuming accel rate is equal to decel rate */
+      v_max = Math.sqrt(accel_rate * distance);
+      velocity_target = Math.min(v_command_ips,v_max); // clipped command
+
+      //System.out.println("Max Velocity for Distance: " + v_max + " in/s");
+      //System.out.println("Target Velocity: " + velocity_target);
+
+      /* Error if arbitrated motor speed is 0 */
+      if (velocity_target <= 0) {
+        safetyFaultActive = true;
+        System.err.println("Error: Arbitrated motor speed is zero");      
+      }
+
+      // Calculate ramp time
+      t_accel = velocity_target / accel_rate;
+
+      // Calculate total time
+      t_total_s = distance/velocity_target + t_accel; 
+
+      System.out.println("Total Motor On Time: " + t_total_s + " seconds");
+      System.out.println("Ramp Time (each): " + t_accel + " seconds");
+
+      /* If drive mode is PAUSE, override time with PAUSE time */
+      if (Mode[stepIdx] == driveMode.PAUSE) {
+        t_total_s = Magnitude[stepIdx];
+      }
+
+      /* Error if arbitrated motor speed is 0 */
+      if ((t_total_s <= 0) || (t_total_s > t_max_autonomous)) {
+        setSafetyFault("Calculated step time is invalid");
+      }
+
+      /* Initialize the motor command to start value */
+      motorCommand = motorCommand_start;
+
+      /* Reset Timer Boolean */
+      TimerStarted = false;
+
+      /* Set initialization complete */
+      stepInitialized[stepIdx] = true;
+
+      System.out.println("Step " + (stepIdx+1) + " of " + numSteps + ": Initialization Complete");
     
-    // Turning arm control
-    /*if ((autoElapsed > 3) && (autoElapsed < 3.5))
-    {
-      // Drop coral in reef
-      turningArm.set(.34);
-    }
-    else
-    {
-       // Stop ejecting
-       turningArm.set(0);
-    }*/
-  }  
+    /* Step has been initialized, calculate step commands */
+    } else {
 
-  /** This function is called once when teleop is enabled. */
+      loop_s = getPeriod(); 
+      k = k_MotorSpeed(MotorCommands[stepIdx]);
+
+      //System.out.println("looptime: " + loop_s);
+      System.out.println("Motor Conversion k: " + k);
+
+      /* Execute the step timer */
+      if (!TimerStarted){
+        /* Start the timer */
+        stepStartTime[stepIdx] = Timer.getFPGATimestamp();
+        stepTime = 0;
+        TimerStarted = true;
+
+      } else {
+        /* Measure current drive time for this step */
+        stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
+      }
+
+      if (stepTime < t_accel) {
+        /* Ramp up motor command */
+        motorCommand = motorCommand + M_step_up;
+
+      } else if (stepTime >= (t_total_s - t_accel)) {
+        /* Ramp down speed */
+        motorCommand = motorCommand - M_step_down;
+
+      } else {
+        /* constant at target velocity */
+        motorCommand = velocity_target / k;
+      }
+
+      System.out.println("Step Time: " + stepTime);
+      //System.out.println("motorCommand: " + motorCommand);
+
+      /* Clip motor command between limits (usually 0 to 1) */
+      motorCommand = Math.max(Math.min(motorCommand, 1), motorCommand_stop);
+
+      //System.out.println("motorCommand: " + motorCommand);
+
+      /* Fault active, go to safe state */
+      if (safetyFaultActive) {
+        safeState();
+        System.err.println("Error: Safety Fault Active, Exiting Routine");
+        return; // exit autonomous
+
+      } else {
+        /* Set Motor Commands */
+        switch (Mode[stepIdx]) {
+          case DRIVE:
+            if (forward){
+              // drive forward
+              setLeftSpeed(motorCommand);
+              setRightSpeed(motorCommand);
+              System.out.println("Driving Forward: " + motorCommand);
+      
+            } else {
+              // drive backward
+              setLeftSpeed(-motorCommand);
+              setRightSpeed(-motorCommand);
+              System.out.println("Driving Backward: " + motorCommand);
+            }
+            break;
+        
+          case TURN:
+            if (forward){
+              /* Right turn */
+              setLeftSpeed(motorCommand);
+              setRightSpeed(-motorCommand);
+              System.out.println("Turning Right: " + motorCommand);
+      
+            } else {
+              /* Left turn */
+              setLeftSpeed(-motorCommand);
+              setRightSpeed(motorCommand);
+              System.out.println("Turning Left: " + motorCommand);
+            }
+            break;
+
+          case EJECT:
+            if (forward){
+              /* Eject Coral */
+              turningArm.set(motorCommand);
+              System.out.println("Ejecting: " + motorCommand);
+      
+            } else {
+              /* Spin Ejector Backwards */
+              turningArm.set(-motorCommand);
+              System.out.println("Reverse Ejecting: " + motorCommand);
+            }
+            break;
+
+          case PAUSE:
+            /* Do Nothing */
+            System.out.println("Pausing: " + motorCommand);
+            break;
+
+          default:
+            setSafetyFault("Invalid Step Mode Commanded");
+            break;              
+        }
+      }
+
+      /* Check for step complete */
+      if (stepTime >= t_total_s){
+        safeState(); // Go to a safe state
+        DisplaySafeState = true; // reset safe state display        
+        stepIdx = stepIdx + 1; // Go to the next step (in the next loop)
+        System.out.println("Step " + (stepIdx+1) + " Complete");      
+      }
+    }
+  }
+    
+  /* This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {}
 
-  /** This function is called periodically during operator control. */
+  /* This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
     /* Driver contols */
@@ -220,29 +726,28 @@ public class Robot extends TimedRobot {
       driveFactor = 0.7;
     else
       driveFactor= 0.5;
-    
-
 
     double forward = driveFilter.calculate(driverController.getRawAxis(1));
     double turn = turnFilter.calculate(driverController.getRawAxis(4));
     double driveLeftPower;
     double driveRightPower;
-    //driveLeft.set(driveLeftPower*driveFactor);
-    //driveRight.set(driveRightPower*driveFactor);
+    
+    // Drive Forward
     if (driverController.getRawButton(6))
     {
-    driveLeftPower = forward + turn;
-    driveRightPower = forward - turn;
-    setLeftSpeed(driveLeftPower*driveFactor * -1);
-    setRightSpeed(driveRightPower*driveFactor * -1);
-    
+      driveLeftPower = forward - turn;
+      driveRightPower = forward + turn;
+      setLeftSpeed(driveLeftPower*driveFactor);
+      setRightSpeed(driveRightPower*driveFactor);
     }
+    
+    // Drive in reverse with reversed controls
     else
     {
-    driveLeftPower = forward - turn;
-    driveRightPower = forward + turn;
-    setLeftSpeed(driveLeftPower*driveFactor);
-    setRightSpeed(driveRightPower*driveFactor);
+      driveLeftPower = forward + turn;
+      driveRightPower = forward - turn;
+      setLeftSpeed(driveLeftPower*driveFactor * -1);
+      setRightSpeed(driveRightPower*driveFactor * -1);
     }
     /* Op controlls */
 
