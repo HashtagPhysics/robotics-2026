@@ -740,8 +740,8 @@ public class Robot extends TimedRobot {
     // Drive Forward
     if (driverController.getRawButton(6))
     {
-      driveLeftPower = forward - turn;
-      driveRightPower = forward + turn;
+      driveLeftPower = forward + turn;
+      driveRightPower = forward - turn;
       setLeftSpeed(driveLeftPower*driveFactor);
       setRightSpeed(driveRightPower*driveFactor);
     }
@@ -749,8 +749,8 @@ public class Robot extends TimedRobot {
     // Drive in reverse with reversed controls
     else
     {
-      driveLeftPower = forward + turn;
-      driveRightPower = forward - turn;
+      driveLeftPower = forward - turn;
+      driveRightPower = forward + turn;
       setLeftSpeed(driveLeftPower*driveFactor * -1);
       setRightSpeed(driveRightPower*driveFactor * -1);
     }
@@ -766,31 +766,31 @@ public class Robot extends TimedRobot {
     // trigger to shoot
     if(opController.getRawButton(5))
     {
-      frontSpeed = 0.55;
-      backSpeed = -0.55;
+      frontSpeed = -0.75;
+      backSpeed = 0.75;
     }
     else if(opController.getRawButton(6))
     {
       // fast eject
-      frontSpeed = 0.75;
-      backSpeed = -0.75;
+      frontSpeed = -1;
+      backSpeed = 1;
     }
     // trigger to intake
     else if(opController.getRawButton(3))
     {
-      frontSpeed = 0.75;
-      backSpeed = 0.55;
+      frontSpeed = -0.75;
+      backSpeed = -0.75;
     }
     else if(opController.getRawButton(4))
     {
-      frontSpeed = 0.75;
-      backSpeed = 0.55;
+      frontSpeed = -0.75;
+      backSpeed = -0.75;
     }
     else if(opController.getRawButton(1))
     {
       // fast intake
-      frontSpeed = 1;
-      backSpeed = 0.75;
+      frontSpeed = -1;
+      backSpeed = -1;
  
     }
     else if (opController.getRawButton(2))
@@ -803,7 +803,7 @@ public class Robot extends TimedRobot {
       frontSpeed = 0;
       backSpeed = 0;
     }
-    launcherMotor.set(-frontSpeed);
+    launcherMotor.set(frontSpeed);
     hopperMotor.set(backSpeed);
   }
 
