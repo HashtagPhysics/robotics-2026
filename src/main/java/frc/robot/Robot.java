@@ -47,7 +47,7 @@ public class Robot extends TimedRobot {
   {
     //Change bias to offset drift on Motors
     //Don't change bias more than between .9 and 1.1
-    double leftWheelBias = 1.07;
+    double leftWheelBias = 1;
     driveLeftA.set(speed * leftWheelBias);
     driveLeftB.set(speed * leftWheelBias);
   };
@@ -191,45 +191,22 @@ public class Robot extends TimedRobot {
 
     // Calibrate: TEST Autonomous Routine
     private driveMode[] testModes = {
-      driveMode.DRIVE,
-      driveMode.EJECT,
-      driveMode.DRIVE,
-      driveMode.PAUSE,
-      driveMode.TURN
+      driveMode.DRIVE
     };
     
     private double[] testMagnitudes = {
-      64.75,  // stop just before the reef 79
-      40,     // Eject
-      -64.75, // Return to start
-      5,      // Pause
-      90     // right 90 degrees
+      120
     };
   
     /* motor command for each step */
     private double[] testMotorCommands = {
-      0.6,
-      0.4,
-      0.6,
-      0.5,
-      0.25  
+      1
     };
 
-  // Calibrate: LEFT Autonomous Routine
-  private driveMode[] leftModes = {
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.EJECT,
-    /* driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.PAUSE,
-    driveMode.DRIVE,
-    driveMode.EJECT*/
-  };
+    // Calibrate: LEFT Autonomous Routine
+    private driveMode[] leftModes = {
+      driveMode.TURN
+    };
   
   private double[] leftMagnitudes = {
     60,   // forward inches
@@ -265,42 +242,18 @@ public class Robot extends TimedRobot {
   // Calibrate: CENTER Autonomous Routine
   private driveMode[] centerModes = {
     driveMode.DRIVE,
-    driveMode.EJECT,
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.PAUSE,
-    driveMode.DRIVE,
     driveMode.EJECT
   };
   
   private double[] centerMagnitudes = {
-    65,   // Forward inches
-    40,   // eject "inches"
-    -70,  // reverse inches
-    28,   // right degrees
-    255,  // forward inches
-    -154, // left degrees
-    -13,  // reverse inches
-    5,    // WAIT "seconds"
-    120,  // forward inches
-    40    // eject "inches"
+    25,     // backward inches
+    -1000   // eject "inches"
   };
 
   /* motor command for each step */
   private double[] centerMotorCommands = {
     0.5,
-    0.4,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.5,
-    0.4
+    1
   };
 
   // Calibrate: RIGHT Autonomous Routine
@@ -373,7 +326,7 @@ public class Robot extends TimedRobot {
     stepIdx = 0;
     
     // Calibrate: Pick a routine
-    startLoc routine = startLoc.TEST;
+    startLoc routine = startLoc.CENTER;
     System.out.println(routine + " Routine Loaded");
     
     // Load the autonomous routine
@@ -497,7 +450,7 @@ public class Robot extends TimedRobot {
             /* Calibrate: Max without prevent slipping 
             acceleration rate for DRIVE steps
             should be between 100 and 600 */
-            accel_rate = 300;
+            accel_rate = 9999;
             break;
           
           case TURN:
@@ -505,12 +458,11 @@ public class Robot extends TimedRobot {
             /* Calibrate: Max without prevent slipping 
             acceleration rate for TURN steps
             should be between 100 and 600 */
-            accel_rate = 300;
+            accel_rate = 9999;
 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
-            // TEMPORARY ADJUSTMENT * 3.11
-            distance = (trackwidth * Math.PI * 3.11 * Magnitude[stepIdx]) / 360.0;
+            distance = (trackwidth * Math.PI * Magnitude[stepIdx]) / 360.0;
             break;
 
           case EJECT:
@@ -682,14 +634,14 @@ public class Robot extends TimedRobot {
           case EJECT:
             if (forward){
               /* Intake ball */
-              launcherMotor.set(motorCommand);
-              hopperMotor.set(motorCommand);
+              launcherMotor.set(0.75 * -motorCommand);
+              hopperMotor.set(-motorCommand);
               System.out.println("Ejecting: " + motorCommand);
 
             } else {
               /* Eject ball */
-              launcherMotor.set(motorCommand);
-              hopperMotor.set(-motorCommand);
+              launcherMotor.set(-motorCommand);
+              hopperMotor.set(0.5 * motorCommand);
               System.out.println("intaking: " + motorCommand);
 
             }
@@ -764,38 +716,27 @@ public class Robot extends TimedRobot {
     //CTS
 
     // trigger to shoot
-    if(opController.getRawButton(5))
+    if (opController.getRawButton(2))
     {
-      frontSpeed = -0.75;
-      backSpeed = 0.75;
-    }
-    else if(opController.getRawButton(6))
-    {
-      // fast eject
       frontSpeed = -1;
-      backSpeed = 1;
+      backSpeed = 0.5;
+    }else if (opController.getRawButton(6) || opController.getRawButton(5))
+    {
+      frontSpeed = -0.85;
+      backSpeed = 0.5;
     }
+
     // trigger to intake
-    else if(opController.getRawButton(3))
+    else if(opController.getRawButton(1) || opController.getRawButton(4))
     {
       frontSpeed = -0.75;
-      backSpeed = -0.75;
-    }
-    else if(opController.getRawButton(4))
-    {
-      frontSpeed = -0.75;
-      backSpeed = -0.75;
-    }
-    else if(opController.getRawButton(1))
-    {
-      // fast intake
-      frontSpeed = -1;
       backSpeed = -1;
  
     }
-    else if (opController.getRawButton(2))
+    else if (opController.getRawButton(3))
     {
-      frontSpeed = -1;
+      // Unstick
+      backSpeed = -1;
     }
     else
     {
