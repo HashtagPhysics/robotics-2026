@@ -246,7 +246,7 @@ public class Robot extends TimedRobot {
   };
   
   private double[] centerMagnitudes = {
-    25,     // backward inches
+    66,     // forward inches
     -1000   // eject "inches"
   };
 
@@ -720,8 +720,7 @@ public class Robot extends TimedRobot {
     {
       // shoot fast
       frontSpeed = -1;
-      // backSpeed = 0.5;
-      backSpeed = 0.4;
+      backSpeed = 0.5;
     }else if (opController.getRawButton(6) || opController.getRawButton(5))
     {
       // shoot slow
