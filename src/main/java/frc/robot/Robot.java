@@ -718,10 +718,13 @@ public class Robot extends TimedRobot {
     // trigger to shoot
     if (opController.getRawButton(2))
     {
+      // shoot fast
       frontSpeed = -1;
-      backSpeed = 0.5;
+      // backSpeed = 0.5;
+      backSpeed = 0.4;
     }else if (opController.getRawButton(6) || opController.getRawButton(5))
     {
+      // shoot slow
       frontSpeed = -0.85;
       backSpeed = 0.5;
     }
