@@ -782,7 +782,7 @@ public class Robot extends TimedRobot {
       // launch fast
       frontSpeed = fastLaunchSpeed;
       backSpeed = fastHopperSpeed;
-    }else if (opController.getRawButton(6) //|| opController.getRawButton(5))
+    }else if (opController.getRawButton(6)) //|| opController.getRawButton(5))
     {
       // launch slow
       frontSpeed = slowLaunchSpeed;
@@ -790,7 +790,7 @@ public class Robot extends TimedRobot {
     }
 
     // trigger to intake
-    else if(opController.getRawButton(1) //|| opController.getRawButton(4))
+    else if(opController.getRawButton(1)) //|| opController.getRawButton(4))
     {
       frontSpeed = IntakeFrontSpeed;
       backSpeed = IntakeHopperSpeed;
