@@ -1,3 +1,5 @@
+// line 545
+
 // Copyright (c) FIRST and other WPILib contributors.
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
@@ -51,11 +53,65 @@ public class Robot extends TimedRobot {
     driveLeftA.set(speed * leftWheelBias);
     driveLeftB.set(speed * leftWheelBias);
   };
+
   private void setRightSpeed(double speed)
   {
     driveRightA.set(speed);
     driveRightB.set(speed);
   };
+
+  // Command launch and hopper motors
+  // intake: launch motor (-) | hopper motor (-)
+  // launch: launch motor (-) | hopper motor (+)
+  // unstick: launch motor (0) | hopper motor (-)
+  // empty hopper: launch motor (+) | hopper motor (+)
+  private void setEjectSpeeds(double launchspeed, double hopperspeed)
+  {
+    // Safety check: if a safety fault is active, set the robot to a safe state and do not execute eject command 
+    if (safetyFaultActive) {
+      safeState();
+      return;
+    }
+
+    // Intake
+    if (launchspeed < 0.0 && hopperspeed < 0.0) {
+      launcherMotor.set(launchspeed);
+      hopperMotor.set(hopperspeed);
+    }
+
+    // Launch
+    else if (launchspeed < 0.0 && hopperspeed > 0.0){}
+
+    if (Math.abs(launcherMotor.get()) < 0.01) {
+        /* Start the timer */
+        ejectDelayTimer_s = 0;
+        ejectStartTime_s = Timer.getFPGATimestamp();
+        launcherMotor.set(-1.0);
+    } else if (ejectDelayActive) {
+        ejectDelayTimer_s = Timer.getFPGATimestamp() - ejectStartTime_s;
+        if (ejectDelayTimer_s < ejectDelay_s) {
+          ejectDelayActive = false;
+          launcherMotor.set(-1.0); // launch speed is negative because of motor direction
+          hopperMotor.set(0.0); // hopper speed is positive because of motor direction
+        }  
+        else {
+          launcherMotor.set(launchspeed);
+          hopperMotor.set(hopperspeed);
+        }
+      }
+
+      // Unstick
+      else if (launchspeed == 0.0 && hopperspeed < 0.0) {
+        launcherMotor.set(0.0);
+        hopperMotor.set(hopperspeed);
+      }
+
+      // Empty Hopper
+      else if (launchspeed > 0.0 && hopperspeed > 0.0) {
+        launcherMotor.set(launchspeed);
+        hopperMotor.set(hopperspeed);
+    }
+  }
 
   public void setSafetyFault(String message)
   {
@@ -113,13 +169,33 @@ public class Robot extends TimedRobot {
   /* Global variables */
   boolean safetyFaultActive = false;
   boolean DisplaySafeState = true;
+  boolean ejectDelayActive = false;
+  double ejectDelayTimer_s = 0;
+  double ejectStartTime_s = 0;
   double driveFactor = 0.6;
   double autoStart = 0;
   private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
-  
+
+  // Calibrate: Launch Motor Commands
+  // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
+  // Slow Launch is typically used for autonomous, because fuel is limited
+  // Slow and Fast Launch modes are available by button mapping in Teleop
+  double slowLaunchSpeed = -1.0; // value of launch speed for slow launch
+  double slowHopperSpeed = 0.6; // value of slow hopper speed for slow launch
+  double fastLaunchSpeed = -1.0; // value of launch speed for fast launch
+  double fastHopperSpeed = 1.0; // value of fast hopper speed for fast launch
+  double ejectDelay_s = 0.5; // time it takes for launcher to spin up, typically 0.2 to 1 seconds
+  double unstickHopperSpeed = -1.0; // value of hopper speed for unsticking fuel
+
+  // Calibrate: Intake Motor Commands
+  double IntakeFrontSpeed = -0.75; // value of intake front speed
+  double IntakeHopperSpeed = -1.0; // value of intake hopper speed
+  double EmptyFrontSpeed = 0.75; // value of front speed for emptying hopper
+  double EmptyHopperSpeed = 1.0; // value of hopper speed for emptying hopper
+
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig config = new SparkMaxConfig();
   SparkBase.ResetMode resetMode;
@@ -169,7 +245,7 @@ public class Robot extends TimedRobot {
   private enum driveMode { DRIVE, TURN, EJECT, PAUSE }
   
   // Autonomous global variables
-  private double t_max_autonomous = 15;  // max step time cannot exceed autonomous time, safety measure
+  private double t_max_autonomous = 20;  // max step time cannot exceed autonomous time, safety measure
   private double accel_rate, motorCommand = 0; // set elsewhere
   private double velocity_target = 0;
   private int numSteps;
@@ -181,7 +257,7 @@ public class Robot extends TimedRobot {
   // Calibrate: Set robot track width in inches
   private double trackwidth = 21.5;
 
-  // Calibrate: Motor start and stop commands
+  // Calibrate: Drive Motor commands
   // These are the initial and final motor command targets
   // to overcome friction and inertia
   private double motorCommand_start = 0; // 0 to 0.3
@@ -191,52 +267,33 @@ public class Robot extends TimedRobot {
 
     // Calibrate: TEST Autonomous Routine
     private driveMode[] testModes = {
-      driveMode.DRIVE
     };
     
     private double[] testMagnitudes = {
-      120
     };
   
     /* motor command for each step */
     private double[] testMotorCommands = {
-      1
     };
 
     // Calibrate: LEFT Autonomous Routine
     private driveMode[] leftModes = {
-      driveMode.TURN
+      driveMode.DRIVE,
+      driveMode.TURN,
+      driveMode.EJECT
     };
   
   private double[] leftMagnitudes = {
-    60,   // forward inches
-    58,   // right degrees
-    64,   // forward inches 
-    40,   // eject "inches"
-    /* -90,  // reverse inches
-    -55,  // left degrees
-    170,  // forward inches
-    124,  // right degrees
-    -28,  // reverse inches
-    5,    // WAIT seconds
-    122,  // forward inches
-    40    // eject "inches" */
+    60, // forward inches
+    45, // right degrees
+    12, // eject for 12 seconds
   };
 
   /* motor command for each step */
   private double[] leftMotorCommands = {
-    0.5, // DRIVE
-    0.5, // TURN
-    0.5, // DRIVE
-    0.4, // EJECT
-    /* 0.5, // DRIVE
-    0.5, // TURN
-    0.5, // DRIVE
-    0.5, // TURN
-    0.5, // DRIVE 
-    0.5,   // PAUSE
-    0.5, // DRIVE
-    0.4  // EJECT*/
+    0.4, // DRIVE
+    0.4, // TURN
+    12 // EJECT for 12 seconds
   };
 
   // Calibrate: CENTER Autonomous Routine
@@ -246,73 +303,47 @@ public class Robot extends TimedRobot {
   };
   
   private double[] centerMagnitudes = {
-    66,     // forward inches
-    -1000   // eject "inches"
+    60, // forward inches
+    12 // eject for x seconds
   };
 
   /* motor command for each step */
   private double[] centerMotorCommands = {
-    0.5,
-    1
+    0.4, // DRIVE
+    12 // eject for x seconds
   };
 
   // Calibrate: RIGHT Autonomous Routine
   private driveMode[] rightModes = {
     driveMode.DRIVE,
     driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.EJECT,
-    /* driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.PAUSE,
-    driveMode.DRIVE,
-    driveMode.EJECT */
+    driveMode.EJECT
   };
   
   private double[] rightMagnitudes = {
-    60,   // forward inches
-    -58,  // left degrees
-    64,   // forward inches 
-    40,   // eject "inches"
-    /* -90,  // reverse inches
-    55,   // right degrees
-    170,  // forward inches
-    -124, // left degrees
-    -28,  // reverse inches
-    5,    // WAIT seconds
-    122,  // forward inches
-    40    // eject "inches" */
+    60, // forward inches
+    -45, // left degrees
+    12 // eject for x seconds
   };
 
   /* motor command for each step */
   private double[] rightMotorCommands = {
-    0.5, // DRIVE
-    0.5, // TURN
-    0.5, // DRIVE
-    0.4, // EJECT
-    /* 0.5, // DRIVE
-    0.5, // TURN
-    0.5, // DRIVE
-    0.5, // TURN
-    0.5, // DRIVE 
-    0.5,   // PAUSE
-    0.5, // DRIVE
-    0.4  // EJECT */
+    0.4, // DRIVE
+    0.4, // TURN
+    12 // eject for x seconds
   };
 
-  /**
-   * This autonomous (along with the chooser code above) shows how to select between different
-   * autonomous modes using the dashboard. The sendable chooser code works with the Java
-   * SmartDashboard. If you prefer the LabVIEW Dashboard, remove all of the chooser code and
-   * uncomment the getString line to get the auto name from the text box below the Gyro
-   *
-   * <p>You can add additional auto modes by adding additional comparisons to the switch structure
-   * below with additional strings. If using the SendableChooser make sure to add them to the
-   * chooser code above as well.
+  /*
+  This autonomous (along with the chooser code above) shows how to select between different
+  autonomous modes using the dashboard. The sendable chooser code works with the Java
+  SmartDashboard. If you prefer the LabVIEW Dashboard, remove all of the chooser code and
+  uncomment the getString line to get the auto name from the text box below the Gyro
+
+  You can add additional auto modes by adding additional comparisons to the switch structure
+  below with additional strings. If using the SendableChooser make sure to add them to the
+  chooser code above as well.
    */
+
   @Override
   public void autonomousInit() {
     //m_autoSelected = m_chooser.getSelected(); // is this used?
@@ -450,7 +481,7 @@ public class Robot extends TimedRobot {
             /* Calibrate: Max without prevent slipping 
             acceleration rate for DRIVE steps
             should be between 100 and 600 */
-            accel_rate = 9999;
+            accel_rate = 300;
             break;
           
           case TURN:
@@ -458,7 +489,7 @@ public class Robot extends TimedRobot {
             /* Calibrate: Max without prevent slipping 
             acceleration rate for TURN steps
             should be between 100 and 600 */
-            accel_rate = 9999;
+            accel_rate = 300;
 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
@@ -469,8 +500,7 @@ public class Robot extends TimedRobot {
             /* No ramp needed for ejecting */
             accel_rate = 9999;
 
-            /* For simplicity, EJECT magnitude is actually 
-            calculated as a distance, same as the other drive modes */
+            /* EJECT magnitude is not actually distance, but time instead */
             distance = Magnitude[stepIdx];            
             break;
 
@@ -529,8 +559,10 @@ public class Robot extends TimedRobot {
       System.out.println("Total Motor On Time: " + t_total_s + " seconds");
       System.out.println("Ramp Time (each): " + t_accel + " seconds");
 
-      /* If drive mode is PAUSE, override time with PAUSE time */
-      if (Mode[stepIdx] == driveMode.PAUSE) {
+      /* If drive mode is EJECT, override time with EJECT time */
+      if (Mode[stepIdx] == driveMode.EJECT) {
+        t_total_s = Magnitude[stepIdx];
+      } else if (Mode[stepIdx] == driveMode.PAUSE) { // If drive mode is PAUSE, override time with PAUSE time
         t_total_s = Magnitude[stepIdx];
       }
 
@@ -572,17 +604,49 @@ public class Robot extends TimedRobot {
       }
 
       if (stepTime < t_accel) {
-        /* Ramp up motor command */
+        // Ramp up motor command
         motorCommand = motorCommand + M_step_up;
 
       } else if (stepTime >= (t_total_s - t_accel)) {
-        /* Ramp down speed */
+        // Ramp down speed
         motorCommand = motorCommand - M_step_down;
 
       } else {
-        /* constant at target velocity */
+        // constant at target velocity
         motorCommand = velocity_target / k;
       }
+
+      /*
+      motorCommand = motorCommand_amount(t_total_s, stepTime, accel_rate, velocity_target);
+
+      public double motorCommand_amount(double commandedTime, double currentTime, double accelRate, double motorTarget) {
+        if (commandedTime >= currentTime) {
+          if (motorTarget / accelRate * 2 >= commandedTime) {
+            if (motorTarget / accelRate * currentTime < motorTarget) {
+              return accelRate * currentTime;
+
+            } else if (commandedTime - currentTime - motorTarget / accelRate <= 0) {
+              final double decelTime = commandedTime - currentTime;
+              return decelTime - accelRate * currentTime;
+
+            } else {
+              return motorTarget;
+
+            }
+
+          } else {
+            if (currentTime / 2 <= commandedTime) {
+              return accelRate * currentTime;
+
+            } else {
+              final double decelTime = commandedTime - currentTime;
+              return decelTime - accelRate * currentTime;
+
+            }
+          }
+        }
+      }
+      */
 
       System.out.println("Step Time: " + stepTime);
       //System.out.println("motorCommand: " + motorCommand);
@@ -633,17 +697,14 @@ public class Robot extends TimedRobot {
 
           case EJECT:
             if (forward){
-              /* Intake ball */
-              launcherMotor.set(0.75 * -motorCommand);
-              hopperMotor.set(-motorCommand);
-              System.out.println("Ejecting: " + motorCommand);
+              /* Launch fuel */
+              setEjectSpeeds(slowLaunchSpeed, slowHopperSpeed); // set eject speeds, which handles the delay logic internally
+              System.out.println("Ejecting: " + motorCommand + " seconds"); // Display commanded eject time
 
             } else {
-              /* Eject ball */
-              launcherMotor.set(-motorCommand);
-              hopperMotor.set(0.5 * motorCommand);
-              System.out.println("intaking: " + motorCommand);
-
+              /* Intake fuel */
+              setEjectSpeeds(IntakeFrontSpeed, IntakeHopperSpeed);
+              System.out.println("Intaking: " + motorCommand + " seconds"); // Display commanded intake time
             }
             break;
 
@@ -715,39 +776,46 @@ public class Robot extends TimedRobot {
     //launcherMotor.set(opController.getTwist());
     //CTS
 
-    // trigger to shoot
+    // trigger to launch
     if (opController.getRawButton(2))
     {
-      // shoot fast
-      frontSpeed = -1;
-      backSpeed = 0.5;
-    }else if (opController.getRawButton(6) || opController.getRawButton(5))
+      // launch fast
+      frontSpeed = fastLaunchSpeed;
+      backSpeed = fastHopperSpeed;
+    }else if (opController.getRawButton(6) //|| opController.getRawButton(5))
     {
-      // shoot slow
-      frontSpeed = -0.85;
-      backSpeed = 0.5;
+      // launch slow
+      frontSpeed = slowLaunchSpeed;
+      backSpeed = slowHopperSpeed;
     }
 
     // trigger to intake
-    else if(opController.getRawButton(1) || opController.getRawButton(4))
+    else if(opController.getRawButton(1) //|| opController.getRawButton(4))
     {
-      frontSpeed = -0.75;
-      backSpeed = -1;
+      frontSpeed = IntakeFrontSpeed;
+      backSpeed = IntakeHopperSpeed;
  
     }
     else if (opController.getRawButton(3))
     {
       // Unstick
-      backSpeed = -1;
+      frontSpeed = 0;
+      backSpeed = unstickHopperSpeed;
+    }
+    else if (opController.getRawButton(5))
+    {
+      // Empty Hopper
+      frontSpeed = EmptyFrontSpeed;
+      backSpeed = EmptyHopperSpeed;
     }
     else
     {
-      //Do not change away from 0 
+      // Action for no buttons pressed
+      // Do not change away from 0 
       frontSpeed = 0;
       backSpeed = 0;
     }
-    launcherMotor.set(frontSpeed);
-    hopperMotor.set(backSpeed);
+    setEjectSpeeds(frontSpeed, backSpeed); // set eject motor speeds
   }
 
   /** This function is called once when the robot is disabled. */
