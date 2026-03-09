@@ -65,53 +65,92 @@ public class Robot extends TimedRobot {
   // launch: launch motor (-) | hopper motor (+)
   // unstick: launch motor (0) | hopper motor (-)
   // empty hopper: launch motor (+) | hopper motor (+)
-  private void setEjectSpeeds(double launchspeed, double hopperspeed)
-  {
-    // Safety check: if a safety fault is active, set the robot to a safe state and do not execute eject command 
-    if (safetyFaultActive) {
-      safeState();
+  private void setEjectSpeeds(double launchspeed, double hopperspeed) {
+  
+  // clamp inputs
+  launchspeed = Math.max(-1.0, Math.min(1.0, launchspeed));
+  hopperspeed = Math.max(-1.0, Math.min(1.0, hopperspeed));
+
+  if (safetyFaultActive) {
+    ejectDelayActive = false;
+    safeState();
+    return;
+  }
+
+  // Launch flow
+  if  (launchspeed < 0.0 && hopperspeed > 0.0) {
+    double spinUpPower = Math.signum(launchspeed) * 1.0; // always max effort in launch direction
+
+    // If not already in spin-up, and launcher currently near 0, start timer and spin at max
+    if (!ejectDelayActive && Math.abs(launcherMotor.get()) < EPS) {
+      ejectDelayActive = true;
+      ejectStartTime_s = Timer.getFPGATimestamp();
+      launcherMotor.set(spinUpPower);
+      hopperMotor.set(0.0);
       return;
     }
 
-    // Intake
-    if (launchspeed < 0.0 && hopperspeed < 0.0) {
-      launcherMotor.set(launchspeed);
-      hopperMotor.set(hopperspeed);
-    }
-
-    // Launch
-    else if (launchspeed < 0.0 && hopperspeed > 0.0){}
-
-    if (Math.abs(launcherMotor.get()) < 0.01) {
-        /* Start the timer */
-        ejectDelayTimer_s = 0;
-        ejectStartTime_s = Timer.getFPGATimestamp();
-        launcherMotor.set(-1.0);
-    } else if (ejectDelayActive) {
-        ejectDelayTimer_s = Timer.getFPGATimestamp() - ejectStartTime_s;
-        if (ejectDelayTimer_s < ejectDelay_s) {
-          ejectDelayActive = false;
-          launcherMotor.set(-1.0); // launch speed is negative because of motor direction
-          hopperMotor.set(0.0); // hopper speed is positive because of motor direction
-        }  
-        else {
-          launcherMotor.set(launchspeed);
-          hopperMotor.set(hopperspeed);
-        }
-      }
-
-      // Unstick
-      else if (launchspeed == 0.0 && hopperspeed < 0.0) {
-        launcherMotor.set(0.0);
-        hopperMotor.set(hopperspeed);
-      }
-
-      // Empty Hopper
-      else if (launchspeed > 0.0 && hopperspeed > 0.0) {
+    // If spin-up active, check elapsed time
+    if (ejectDelayActive) {
+      double elapsed = Timer.getFPGATimestamp() - ejectStartTime_s;
+      if (elapsed < ejectDelay_s) {
+        // Continue spin-up at max effort, keep hopper off
+        launcherMotor.set(spinUpPower);
+        hopperMotor.set(0.0);
+        return;
+      } else {
+        // Spin-up complete: set requested speeds and clear spin-up state
+        ejectDelayActive = false;
         launcherMotor.set(launchspeed);
         hopperMotor.set(hopperspeed);
+        return;
+      }
     }
+
+    // Fallback: if launch requested but we didn't trigger spin-up (e.g., launcher already running),
+    // set requested speeds immediately
+    launcherMotor.set(launchspeed);
+    hopperMotor.set(hopperspeed);
+    return;
   }
+
+  // Stop / reset
+  if (Math.abs(launchspeed) < EPS && Math.abs(hopperspeed) < EPS) {
+    ejectDelayActive = false;
+    launcherMotor.set(0.0);
+    hopperMotor.set(0.0);
+    return;
+  }
+
+  // Intake: both negative -> run immediately
+  if (launchspeed < 0.0 && hopperspeed < 0.0) {
+    ejectDelayActive = false;
+    launcherMotor.set(launchspeed);
+    hopperMotor.set(hopperspeed);
+    return;
+  }
+
+  // Unstick: launcher 0, hopper negative -> run immediately
+  if (Math.abs(launchspeed) < EPS && hopperspeed < 0.0) {
+    ejectDelayActive = false;
+    launcherMotor.set(0.0);
+    hopperMotor.set(hopperspeed);
+    return;
+  }
+
+  // Empty hopper: both positive -> run immediately
+  if (launchspeed > 0.0 && hopperspeed > 0.0) {
+    ejectDelayActive = false;
+    launcherMotor.set(launchspeed);
+    hopperMotor.set(hopperspeed);
+    return;
+  }
+
+  // Any other unexpected combination: set directly (spin-up not used)
+  ejectDelayActive = false;
+  launcherMotor.set(launchspeed);
+  hopperMotor.set(hopperspeed);
+}
 
   public void setSafetyFault(String message)
   {
@@ -170,10 +209,10 @@ public class Robot extends TimedRobot {
   boolean safetyFaultActive = false;
   boolean DisplaySafeState = true;
   boolean ejectDelayActive = false;
-  double ejectDelayTimer_s = 0;
   double ejectStartTime_s = 0;
   double driveFactor = 0.6;
   double autoStart = 0;
+  double EPS = 0.01; // small value for comparing doubles to zero
   private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
@@ -216,10 +255,10 @@ public class Robot extends TimedRobot {
     config.inverted(false);
     config.idleMode(IdleMode.kBrake);
     
-    driveLeftA.configure(configInverted, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
-    driveLeftB.configure(configInverted, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
-    driveRightA.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
-    driveRightB.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
+    driveLeftA.configure(configInverted, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
+    driveLeftB.configure(configInverted, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
+    driveRightA.configure(config, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
+    driveRightB.configure(config, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
   
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
@@ -589,7 +628,7 @@ public class Robot extends TimedRobot {
       k = k_MotorSpeed(MotorCommands[stepIdx]);
 
       //System.out.println("looptime: " + loop_s);
-      System.out.println("Motor Conversion k: " + k);
+      //System.out.println("Motor Conversion k: " + k);
 
       /* Execute the step timer */
       if (!TimerStarted){
@@ -648,13 +687,13 @@ public class Robot extends TimedRobot {
       }
       */
 
-      System.out.println("Step Time: " + stepTime);
-      //System.out.println("motorCommand: " + motorCommand);
+      SmartDashboard.putNumber("Step Time", stepTime);
+      SmartDashboard.putNumber("motorCommand", motorCommand);
 
       /* Clip motor command between limits (usually 0 to 1) */
       motorCommand = Math.max(Math.min(motorCommand, 1), motorCommand_stop);
 
-      //System.out.println("motorCommand: " + motorCommand);
+      SmartDashboard.putNumber("motorCommand", motorCommand);
 
       /* Fault active, go to safe state */
       if (safetyFaultActive) {
@@ -670,13 +709,13 @@ public class Robot extends TimedRobot {
               // drive forward
               setLeftSpeed(motorCommand);
               setRightSpeed(motorCommand);
-              System.out.println("Driving Forward: " + motorCommand);
+              SmartDashboard.putNumber("Driving Forward Power", motorCommand);
       
             } else {
               // drive backward
               setLeftSpeed(-motorCommand);
               setRightSpeed(-motorCommand);
-              System.out.println("Driving Backward: " + motorCommand);
+              SmartDashboard.putNumber("Driving Backward Power", motorCommand);
             }
             break;
         
@@ -685,13 +724,13 @@ public class Robot extends TimedRobot {
               /* Right turn */
               setLeftSpeed(motorCommand);
               setRightSpeed(-motorCommand);
-              System.out.println("Turning Right: " + motorCommand);
+              SmartDashboard.putNumber("Turning Power", motorCommand);
       
             } else {
               /* Left turn */
               setLeftSpeed(-motorCommand);
               setRightSpeed(motorCommand);
-              System.out.println("Turning Left: " + motorCommand);
+              SmartDashboard.putNumber("Turning Power", motorCommand);
             }
             break;
 
@@ -699,18 +738,18 @@ public class Robot extends TimedRobot {
             if (forward){
               /* Launch fuel */
               setEjectSpeeds(slowLaunchSpeed, slowHopperSpeed); // set eject speeds, which handles the delay logic internally
-              System.out.println("Ejecting: " + motorCommand + " seconds"); // Display commanded eject time
+              SmartDashboard.putNumber("Eject Time Commanded", motorCommand); // Display commanded eject time
 
             } else {
               /* Intake fuel */
               setEjectSpeeds(IntakeFrontSpeed, IntakeHopperSpeed);
-              System.out.println("Intaking: " + motorCommand + " seconds"); // Display commanded intake time
+              SmartDashboard.putNumber("Intake Time Commanded", motorCommand); // Display commanded intake time
             }
             break;
 
           case PAUSE:
             /* Do Nothing */
-            System.out.println("Pausing: " + motorCommand);
+            SmartDashboard.putNumber("Pause Time Commanded", motorCommand);
             break;
 
           default:
