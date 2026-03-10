@@ -821,7 +821,6 @@ public class Robot extends TimedRobot {
       // launch fast
       frontSpeed = fastLaunchSpeed;
       backSpeed = fastHopperSpeed;
-    }else if (opController.getRawButton(6)) //|| opController.getRawButton(5))
     {
       // launch slow
       frontSpeed = slowLaunchSpeed;
@@ -830,23 +829,28 @@ public class Robot extends TimedRobot {
 
     // intake
     else if(opController.getRawButton(1)) //|| opController.getRawButton(4))
+=======
+    // trigger to intake
+    else if(opController.getRawButton(1))
+>>>>>>> Stashed changes
     {
       frontSpeed = IntakeFrontSpeed;
       backSpeed = IntakeHopperSpeed;
  
     }
-    else if (opController.getRawButton(3))
     {
       // Unstick
       frontSpeed = 0;
       backSpeed = unstickHopperSpeed;
     }
     else if (opController.getRawButton(5))
+    /*else if (opController.getRawButton(4))
     {
       // Empty Hopper
       frontSpeed = EmptyFrontSpeed;
       backSpeed = EmptyHopperSpeed;
     }
+    }*/
     else
     {
       // Action for no buttons pressed
