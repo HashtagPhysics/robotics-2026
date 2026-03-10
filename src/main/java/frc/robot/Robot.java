@@ -828,7 +828,7 @@ public class Robot extends TimedRobot {
       backSpeed = slowHopperSpeed;
     }
 
-    // trigger to intake
+    // intake
     else if(opController.getRawButton(1)) //|| opController.getRawButton(4))
     {
       frontSpeed = IntakeFrontSpeed;
