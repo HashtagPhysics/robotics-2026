@@ -1,5 +1,3 @@
-// line 545
-
 // Copyright (c) FIRST and other WPILib contributors.
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
@@ -821,12 +819,14 @@ public class Robot extends TimedRobot {
       // launch fast
       frontSpeed = fastLaunchSpeed;
       backSpeed = fastHopperSpeed;
+    } else if (opController.getRawButton(6) || opController.getRawButton(5))
     {
       // launch slow
       frontSpeed = slowLaunchSpeed;
       backSpeed = slowHopperSpeed;
     }
 
+<<<<<<< Updated upstream
     // intake
     else if(opController.getRawButton(1)) //|| opController.getRawButton(4))
 =======
@@ -838,18 +838,17 @@ public class Robot extends TimedRobot {
       backSpeed = IntakeHopperSpeed;
  
     }
+    else if (opController.getRawButton(3) || opController.getRawButton(4))
     {
       // Unstick
       frontSpeed = 0;
       backSpeed = unstickHopperSpeed;
     }
-    else if (opController.getRawButton(5))
     /*else if (opController.getRawButton(4))
     {
       // Empty Hopper
       frontSpeed = EmptyFrontSpeed;
       backSpeed = EmptyHopperSpeed;
-    }
     }*/
     else
     {
