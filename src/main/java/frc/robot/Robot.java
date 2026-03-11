@@ -45,7 +45,7 @@ public class Robot extends TimedRobot {
   //cts
   private void setLeftSpeed(double speed)
   {
-    //Change bias to offset drift on Motors
+    //Calibrate: Change bias to offset drift on Motors
     //Don't change bias more than between .9 and 1.1
     double leftWheelBias = 1;
     driveLeftA.set(speed * leftWheelBias);
@@ -145,6 +145,7 @@ public class Robot extends TimedRobot {
   }
 
   // Any other unexpected combination: set directly (spin-up not used)
+  System.err.println("Error: Unknown state in setEjectSpeeds() - no delay triggered for launch command");
   ejectDelayActive = false;
   launcherMotor.set(launchspeed);
   hopperMotor.set(hopperspeed);
@@ -777,13 +778,13 @@ public class Robot extends TimedRobot {
 
 //Percentage of motor speed ONLY SET BETWEEN 0 and 1
 //CTS
-    if(driverController.getLeftBumper()==true)
+    if(driverController.getLeftBumper()==true) {
       driveFactor = 0.7;
-    else
+    } else {
       driveFactor= 0.5;
-
-    double forward = driveFilter.calculate(driverController.getRawAxis(1));
-    double turn = turnFilter.calculate(driverController.getRawAxis(4));
+    }
+    double forward = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
+    double turn = turnFilter.calculate(driverController.getRawAxis(4)); // x-axis, right joystick
     double driveLeftPower;
     double driveRightPower;
     
@@ -792,8 +793,8 @@ public class Robot extends TimedRobot {
     {
       driveLeftPower = forward + turn;
       driveRightPower = forward - turn;
-      setLeftSpeed(driveLeftPower*driveFactor);
-      setRightSpeed(driveRightPower*driveFactor);
+      setLeftSpeed(driveLeftPower * driveFactor);
+      setRightSpeed(driveRightPower * driveFactor);
     }
     
     // Drive in reverse with reversed controls
@@ -801,10 +802,10 @@ public class Robot extends TimedRobot {
     {
       driveLeftPower = forward - turn;
       driveRightPower = forward + turn;
-      setLeftSpeed(driveLeftPower*driveFactor * -1);
-      setRightSpeed(driveRightPower*driveFactor * -1);
+      setLeftSpeed(driveLeftPower * driveFactor * -1);
+      setRightSpeed(driveRightPower * driveFactor * -1);
     }
-    /* Op controlls */
+    /* Op controls */
 
     //Turning speed Control only change in the IF commands
     double frontSpeed = 0;
