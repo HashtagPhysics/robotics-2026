@@ -176,7 +176,7 @@ public class Robot extends TimedRobot {
   private double k_MotorSpeed(double motorSpeed) {
 
     // Calibrate: factor k = speed in inches per second / motor speed command
-    double k = 129;
+    double k = 116; // 156
     
     // if (motorSpeed < 0.4) { 
     //   k = 129;
@@ -223,18 +223,18 @@ public class Robot extends TimedRobot {
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
   // Slow Launch is typically used for autonomous, because fuel is limited
   // Slow and Fast Launch modes are available by button mapping in Teleop
-  double slowLaunchSpeed = -1.0; // value of launch speed for slow launch
-  double slowHopperSpeed = 0.6; // value of slow hopper speed for slow launch
-  double fastLaunchSpeed = -1.0; // value of launch speed for fast launch
-  double fastHopperSpeed = 1.0; // value of fast hopper speed for fast launch
-  double ejectDelay_s = 0.5; // time it takes for launcher to spin up, typically 0.2 to 1 seconds
-  double unstickHopperSpeed = -1.0; // value of hopper speed for unsticking fuel
+  double slowLaunchSpeed = -1.0; // -1.0 value of launch speed for slow launch
+  double slowHopperSpeed = 0.6; // 0.6 value of slow hopper speed for slow launch
+  double fastLaunchSpeed = -1; // -1.0 value of launch speed for fast launch
+  double fastHopperSpeed = 1; // 1.0 value of fast hopper speed for fast launch
+  double ejectDelay_s = 0.5; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
+  double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
-  double IntakeFrontSpeed = -0.75; // value of intake front speed
-  double IntakeHopperSpeed = -1.0; // value of intake hopper speed
-  double EmptyFrontSpeed = 0.75; // value of front speed for emptying hopper
-  double EmptyHopperSpeed = 1.0; // value of hopper speed for emptying hopper
+  double IntakeFrontSpeed = -0.75; // -0.75 value of intake front speed
+  double IntakeHopperSpeed = -1.0; // -1.0 value of intake hopper speed
+  double EmptyFrontSpeed = 0.75; // 0.75 value of front speed for emptying hopper
+  double EmptyHopperSpeed = 1.0; // 1.0 value of hopper speed for emptying hopper
 
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig configNormal = new SparkMaxConfig();
@@ -304,21 +304,24 @@ public class Robot extends TimedRobot {
   // Calibrate: Drive Motor commands
   // These are the initial and final motor command targets
   // to overcome friction and inertia
-  private double motorCommand_start = 0; // 0 to 0.3
-  private double motorCommand_stop = 0;  // -0.3 to 0
-  private double accel_offset = 0.2; // offset for acceleration
+  private double motorCommand_start = 0.09; // 0 to 0.2
+  private double motorCommand_stop = 0.09;  // -0.2 to 0.2
+  private double accel_offset = 0.12; // .12 offset for acceleration
 
   /* The Autonomous Routines are defined here */
 
     // Calibrate: TEST Autonomous Routine
     private driveMode[] testModes = {
+      driveMode.TURN
     };
     
     private double[] testMagnitudes = {
+      180
     };
   
     /* motor command for each step */
     private double[] testMotorCommands = {
+      0.4
     };
 
     // Calibrate: LEFT Autonomous Routine
@@ -402,7 +405,7 @@ public class Robot extends TimedRobot {
     stepIdx = 0;
     
     // Calibrate: Pick a routine
-    startLoc routine = startLoc.CENTER;
+    startLoc routine = startLoc.TEST;
     System.out.println(routine + " Routine Loaded");
     
     // Load the autonomous routine
@@ -526,7 +529,7 @@ public class Robot extends TimedRobot {
             /* Calibrate: Max without prevent slipping 
             acceleration rate for DRIVE steps
             should be between 100 and 600 */
-            accel_rate = 300;
+            accel_rate = 200;
             break;
           
           case TURN:
@@ -534,7 +537,7 @@ public class Robot extends TimedRobot {
             /* Calibrate: Max without prevent slipping 
             acceleration rate for TURN steps
             should be between 100 and 600 */
-            accel_rate = 300;
+            accel_rate = 200;
 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
@@ -576,8 +579,8 @@ public class Robot extends TimedRobot {
       //System.out.println("Motor Step Down: " + M_step_down + " per loop");
 
       /* Calibrate: This adjustment factor accounts for estimated error in the ramp rate function
-      If controller loop rate is changed, this factor will change */
-      distance = distance + 1.65 * MotorCommands[stepIdx];
+      If controller loop rate is changed, this factor will change, previously 1.65 */
+      distance = distance + 0 * MotorCommands[stepIdx];
 
       //System.out.println("Adjusted distance: " + distance + " in");      
       
@@ -789,17 +792,17 @@ public class Robot extends TimedRobot {
     /* Driver contols */
 
 //Percentage of motor speed ONLY SET BETWEEN 0 and 1
-//CTS
+//Calibrate: Teleop Motor Speeds, Fast and Slow
     if(driverController.getLeftBumper()==true) {
-      driveFactor = 0.7;
+      driveFactor = 0.7; // 0.7
     } else {
-      driveFactor= 0.5;
+      driveFactor= 0.5; // 0.5
     }
     double forward = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
     double turn = turnFilter.calculate(driverController.getRawAxis(4)); // x-axis, right joystick
     double driveLeftPower;
     double driveRightPower;
-    
+
     // Drive Forward
     if (driverController.getRawButton(6))
     {
