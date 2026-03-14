@@ -209,7 +209,7 @@ public class Robot extends TimedRobot {
   double ejectStartTime_s = 0;
   double driveFactor = 0.6;
   double autoStart = 0;
-  double EPS = 0.01; // small value for comparing doubles to zero
+  private static final double EPS = 0.01; // deadband: treat |v| < EPS as zero
   private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
@@ -238,8 +238,6 @@ public class Robot extends TimedRobot {
 
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig configNormal = new SparkMaxConfig();
-  SparkBase.ResetMode resetMode;
-  SparkBase.PersistMode persistMode;
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
@@ -295,6 +293,7 @@ public class Robot extends TimedRobot {
   private double velocity_target = 0;
   private int numSteps;
   private boolean stepInitialized[], forward, AutonomousComplete = false, TimerStarted; 
+  private boolean[] stepDownInit; // per-step flag used to initialize deceleration phase
   private driveMode Mode[];
   private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step_up, M_step_down;
   private int stepIdx;
@@ -445,7 +444,7 @@ public class Robot extends TimedRobot {
 
     // Initialize array to false (default)
     stepInitialized = new boolean[numSteps];
-    
+    stepDownInit = new boolean[numSteps]; // initialize decel flags per-step
     // Initialize start time
     stepStartTime = new double[numSteps];
 
@@ -567,7 +566,7 @@ public class Robot extends TimedRobot {
       }
 
       System.out.println("Accel Rate: " + accel_rate + " in/s/s");
-      System.out.println("Distance Comnand: " + distance + " in");
+      System.out.println("Distance Command: " + distance + " in");
 
       /* Convert acceleration rate to motor step per loop */
       M_step_up = (accel_rate / k - motorCommand_start) * loop_s;
@@ -576,7 +575,7 @@ public class Robot extends TimedRobot {
       //System.out.println("Motor Step Up: " + M_step_up + " per loop");
       //System.out.println("Motor Step Down: " + M_step_down + " per loop");
 
-      /* This adjustment factor accounts for estimated error in the ramp rate function
+      /* Calibrate: This adjustment factor accounts for estimated error in the ramp rate function
       If controller loop rate is changed, this factor will change */
       distance = distance + 1.65 * MotorCommands[stepIdx];
 
@@ -617,14 +616,15 @@ public class Robot extends TimedRobot {
         setSafetyFault("Calculated step time is invalid");
       }
 
-      /* Initialize the motor command to start value */
-      motorCommand = motorCommand_start;
+      /* Initialize the motor command to start value plus acceleration offset */
+      motorCommand = motorCommand_start + accel_offset;
 
       /* Reset Timer Boolean */
       TimerStarted = false;
 
       /* Set initialization complete */
       stepInitialized[stepIdx] = true;
+      stepDownInit[stepIdx] = false; // flag to initialize deceleration phase
 
       System.out.println("Step " + (stepIdx+1) + " of " + numSteps + ": Initialization Complete");
     
@@ -651,12 +651,16 @@ public class Robot extends TimedRobot {
 
       if (stepTime < t_accel) {
         // Ramp up motor command
-        motorCommand = motorCommand + M_step_up + accel_offset;
+        motorCommand = motorCommand + M_step_up;
 
       } else if (stepTime >= (t_total_s - t_accel)) {
-        // Ramp down speed
-        motorCommand = motorCommand - M_step_down - accel_offset;
-
+        // Ramp down motor command
+        if (!stepDownInit[stepIdx]) {
+          motorCommand = velocity_target / k - accel_offset;
+          stepDownInit[stepIdx] = true;
+        } else {
+          motorCommand = motorCommand - M_step_down;
+        }
       } else {
         // constant at target velocity
         motorCommand = velocity_target / k;
@@ -698,7 +702,7 @@ public class Robot extends TimedRobot {
       SmartDashboard.putNumber("motorCommand", motorCommand);
 
       /* Clip motor command between limits (usually 0 to 1) */
-      motorCommand = Math.max(Math.min(motorCommand, 1), motorCommand_stop);
+      motorCommand = Math.max(Math.min(motorCommand, 1), motorCommand_stop - accel_offset);
 
       SmartDashboard.putNumber("motorCommand", motorCommand);
 
