@@ -10,23 +10,20 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
-import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /* REV Imports */
 //import com.revrobotics.CANSparkBase.IdleMode;
 
+import com.revrobotics.ResetMode;
+import com.revrobotics.PersistMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
-
-import org.opencv.core.Mat;
-
-import com.fasterxml.jackson.annotation.JsonCreator.Mode;
 import com.revrobotics.spark.SparkBase;
+
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
  * each mode, as described in the TimedRobot documentation. If you change the name of this class or
@@ -42,7 +39,9 @@ public class Robot extends TimedRobot {
   SparkMax launcherMotor = new SparkMax(7, MotorType.kBrushed);
   SparkMax hopperMotor = new SparkMax(6, MotorType.kBrushed);
  
-  //cts
+  // These functions set the speed of the drive motors
+  // any bias between the left and right motors is handled by 
+  // applying a multiplier to the left motors
   private void setLeftSpeed(double speed)
   {
     //Calibrate: Change bias to offset drift on Motors
@@ -175,7 +174,6 @@ public class Robot extends TimedRobot {
   }
 
   private double k_MotorSpeed(double motorSpeed) {
-    // Add voltage compensation logic later, if needed
 
     double k;
 
@@ -214,8 +212,12 @@ public class Robot extends TimedRobot {
   double EPS = 0.01; // small value for comparing doubles to zero
   private static final String kDefaultAuto = "Default";
   private static final String kCustomAuto = "My Auto";
-  private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
+
+  // Calibrate: Motor Voltage Compensation
+  // Set the nominal voltage (usually between 10.0 and 12.0V)
+  // nominal voltage is typically set near minimum voltage, to provide consistent performance as battery voltage drops during matches
+  private static final double VOLTS_NOMINAL = 11.0;  
 
   // Calibrate: Launch Motor Commands
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
@@ -235,7 +237,7 @@ public class Robot extends TimedRobot {
   double EmptyHopperSpeed = 1.0; // value of hopper speed for emptying hopper
 
   SparkMaxConfig configInverted = new SparkMaxConfig();
-  SparkMaxConfig config = new SparkMaxConfig();
+  SparkMaxConfig configNormal = new SparkMaxConfig();
   SparkBase.ResetMode resetMode;
   SparkBase.PersistMode persistMode;
   /**
@@ -248,17 +250,22 @@ public class Robot extends TimedRobot {
 
     CameraServer.startAutomaticCapture(0);
     
-    //Sets the settings on the SparkMax configs and applies them to the motors
+    // Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
     configInverted.idleMode(IdleMode.kBrake);
-    config.inverted(false);
-    config.idleMode(IdleMode.kBrake);
+    configInverted.voltageCompensation(VOLTS_NOMINAL);
+    configNormal.inverted(false);
+    configNormal.idleMode(IdleMode.kBrake);
+    configNormal.voltageCompensation(VOLTS_NOMINAL);
     
-    driveLeftA.configure(configInverted, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
-    driveLeftB.configure(configInverted, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
-    driveRightA.configure(config, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
-    driveRightB.configure(config, SparkBase.ResetMode.kResetSafeParameters, SparkBase.PersistMode.kPersistParameters);
-  
+    // Configure the motors with the specified settings
+    driveLeftA.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    driveLeftB.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    driveRightA.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    driveRightB.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    launcherMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    hopperMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
