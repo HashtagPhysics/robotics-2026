@@ -175,14 +175,14 @@ public class Robot extends TimedRobot {
 
   private double k_MotorSpeed(double motorSpeed) {
 
-    double k;
-
     // Calibrate: factor k = speed in inches per second / motor speed command
-    if (motorSpeed < 0.4) { 
-      k = 129;
-    } else {
-      k = 19.37 * motorSpeed + 96.39;
-    }
+    double k = 129;
+    
+    // if (motorSpeed < 0.4) { 
+    //   k = 129;
+    // } else {
+    //   k = 19.37 * motorSpeed + 96.39;
+    // }
     
     double k_default = 150; // only returned in case of error
 
@@ -307,6 +307,7 @@ public class Robot extends TimedRobot {
   // to overcome friction and inertia
   private double motorCommand_start = 0; // 0 to 0.3
   private double motorCommand_stop = 0;  // -0.3 to 0
+  private double accel_offset = 0.2; // offset for acceleration
 
   /* The Autonomous Routines are defined here */
 
@@ -650,11 +651,11 @@ public class Robot extends TimedRobot {
 
       if (stepTime < t_accel) {
         // Ramp up motor command
-        motorCommand = motorCommand + M_step_up;
+        motorCommand = motorCommand + M_step_up + accel_offset;
 
       } else if (stepTime >= (t_total_s - t_accel)) {
         // Ramp down speed
-        motorCommand = motorCommand - M_step_down;
+        motorCommand = motorCommand - M_step_down - accel_offset;
 
       } else {
         // constant at target velocity
