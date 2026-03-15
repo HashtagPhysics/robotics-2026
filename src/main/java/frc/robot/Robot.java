@@ -17,6 +17,9 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 //import com.revrobotics.CANSparkBase.IdleMode;
 
 import com.revrobotics.ResetMode;
+
+import org.w3c.dom.Text;
+
 import com.revrobotics.PersistMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
@@ -176,7 +179,7 @@ public class Robot extends TimedRobot {
   private double k_MotorSpeed(double motorSpeed) {
 
     // Calibrate: factor k = speed in inches per second / motor speed command
-    double k = 116; // 156
+    double k = 156; // 156 for drive, 116 for turn, need to integrate
     
     // if (motorSpeed < 0.4) { 
     //   k = 129;
@@ -214,6 +217,15 @@ public class Robot extends TimedRobot {
   private static final String kCustomAuto = "My Auto";
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
+  // print a message to the driver station, at a lower rate
+  private int consolePrintCounter = 0;
+  private static final int CONSOLE_PRINT_INTERVAL = 25; // print once every 25 loops (~0.5s @ 20ms)
+  private void printThrottled(String msg) {
+   if (++consolePrintCounter % CONSOLE_PRINT_INTERVAL == 0) {
+     System.out.println(msg);
+   }
+  }
+
   // Calibrate: Motor Voltage Compensation
   // Set the nominal voltage (usually between 10.0 and 12.0V)
   // nominal voltage is typically set near minimum voltage, to provide consistent performance as battery voltage drops during matches
@@ -223,10 +235,10 @@ public class Robot extends TimedRobot {
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
   // Slow Launch is typically used for autonomous, because fuel is limited
   // Slow and Fast Launch modes are available by button mapping in Teleop
-  double slowLaunchSpeed = -1.0; // -1.0 value of launch speed for slow launch
-  double slowHopperSpeed = 0.6; // 0.6 value of slow hopper speed for slow launch
-  double fastLaunchSpeed = -1; // -1.0 value of launch speed for fast launch
-  double fastHopperSpeed = 1; // 1.0 value of fast hopper speed for fast launch
+  double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
+  double slowHopperSpeed = 0.75; // 0.6 value of slow hopper speed for slow launch
+  double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
+  double fastHopperSpeed = 0.75; // 1.0 value of fast hopper speed for fast launch
   double ejectDelay_s = 0.5; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
@@ -820,6 +832,17 @@ public class Robot extends TimedRobot {
       setLeftSpeed(driveLeftPower * driveFactor * -1);
       setRightSpeed(driveRightPower * driveFactor * -1);
     }
+
+    // /* Test Code */
+    // double testAxis = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
+    // double testCommand = testAxis*0.25-0.75;
+    // launcherMotor.set(testCommand);
+    // if (testAxis < -0.1) {
+    //   hopperMotor.set(0.75);
+    // }
+    // printThrottled("Test Motor Command: " + testCommand);
+    // /* Test Code End */
+
     /* Op controls */
 
     //Turning speed Control only change in the IF commands
@@ -870,7 +893,7 @@ public class Robot extends TimedRobot {
       backSpeed = 0;
     }
     setEjectSpeeds(frontSpeed, backSpeed); // set eject motor speeds
-  }
+   }
 
   /** This function is called once when the robot is disabled. */
   @Override
