@@ -78,6 +78,8 @@ public class Robot extends TimedRobot {
     double spinUpPower = Math.signum(launchspeed) * 1.0; // always max effort in launch direction
 
     // If not already in spin-up, and launcher currently near 0, start timer and spin at max
+    // launcherMotor.get() returns the last commanded output (not RPM)
+    // If we add an encoder, replace this check with one based on actual speed.
     if (!ejectDelayActive && Math.abs(launcherMotor.get()) < EPS) {
       ejectDelayActive = true;
       ejectStartTime_s = Timer.getFPGATimestamp();
@@ -223,10 +225,13 @@ public class Robot extends TimedRobot {
   }
 
   // Calibrate: Motor Voltage Compensation
-  // Set the nominal voltage (usually between 10.0 and 12.0V)
-  // nominal voltage is typically set near minimum voltage, to provide consistent performance as battery voltage drops during matches
+  // To enable, set USE_VOLT_COMP to true and 
+  // specify the nominal voltage (usually between 10.0 and 12.0V)
+  // nominal voltage is typically set near minimum voltage, 
+  // to provide consistent performance as battery voltage drops during matches
+  private static final boolean USE_VOLT_COMP = true;
   private static final double VOLTS_NOMINAL = 11.0;  
-
+  
   // Calibrate: Launch Motor Commands
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
   // Slow Launch is typically used for autonomous, because fuel is limited
@@ -259,10 +264,18 @@ public class Robot extends TimedRobot {
     // Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
     configInverted.idleMode(IdleMode.kBrake);
-    configInverted.voltageCompensation(VOLTS_NOMINAL);
+    if (USE_VOLT_COMP) {
+      configInverted.voltageCompensation(VOLTS_NOMINAL);
+    } else {
+      configInverted.disableVoltageCompensation();
+    }
     configNormal.inverted(false);
     configNormal.idleMode(IdleMode.kBrake);
-    configNormal.voltageCompensation(VOLTS_NOMINAL);
+    if (USE_VOLT_COMP) {
+      configNormal.voltageCompensation(VOLTS_NOMINAL);
+    } else {
+      configNormal.disableVoltageCompensation();
+    }
     
     // Configure the motors with the specified settings
     driveLeftA.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
@@ -316,79 +329,6 @@ public class Robot extends TimedRobot {
   private double motorCommand_stop = 0.09;  // -0.2 to 0.2
   private double accel_offset = 0.12; // .12 offset for acceleration
 
-  /* The Autonomous Routines are defined here */
-
-    // Calibrate: TEST Autonomous Routine
-    private driveMode[] testModes = {
-      driveMode.TURN
-    };
-    
-    private double[] testMagnitudes = {
-      180
-    };
-  
-    /* motor command for each step */
-    private double[] testMotorCommands = {
-      0.4
-    };
-
-    // Calibrate: LEFT Autonomous Routine
-    private driveMode[] leftModes = {
-      driveMode.DRIVE,
-      driveMode.TURN,
-      driveMode.EJECT
-    };
-  
-  private double[] leftMagnitudes = {
-    60, // forward inches
-    45, // right degrees
-    12, // eject for 12 seconds
-  };
-
-  /* motor command for each step */
-  private double[] leftMotorCommands = {
-    0.4, // DRIVE
-    0.4, // TURN
-    12 // EJECT for 12 seconds
-  };
-
-  // Calibrate: CENTER Autonomous Routine
-  private driveMode[] centerModes = {
-    driveMode.DRIVE,
-    driveMode.EJECT
-  };
-  
-  private double[] centerMagnitudes = {
-    60, // forward inches
-    12 // eject for x seconds
-  };
-
-  /* motor command for each step */
-  private double[] centerMotorCommands = {
-    0.4, // DRIVE
-    12 // eject for x seconds
-  };
-
-  // Calibrate: RIGHT Autonomous Routine
-  private driveMode[] rightModes = {
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.EJECT
-  };
-  
-  private double[] rightMagnitudes = {
-    60, // forward inches
-    -45, // left degrees
-    12 // eject for x seconds
-  };
-
-  /* motor command for each step */
-  private double[] rightMotorCommands = {
-    0.4, // DRIVE
-    0.4, // TURN
-    12 // eject for x seconds
-  };
-
   /*
   This autonomous (along with the chooser code above) shows how to select between different
   autonomous modes using the dashboard. The sendable chooser code works with the Java
@@ -416,35 +356,38 @@ public class Robot extends TimedRobot {
     startLoc routine = startLoc.TEST;
     System.out.println(routine + " Routine Loaded");
     
-    // Load the autonomous routine
+    // Load the autonomous routine — build fresh arrays each run
     switch (routine) {
+      case TEST: {
+        Mode = new driveMode[] { driveMode.TURN };
+        Magnitude = new double[] { 180 };
+        MotorCommands = new double[] { 0.4 };
+        break;
+      }
 
-      case TEST:
-        Mode = testModes;
-        Magnitude = testMagnitudes;
-        MotorCommands = testMotorCommands;
+      case LEFT: {
+        Mode = new driveMode[] { driveMode.DRIVE, driveMode.TURN, driveMode.EJECT };
+        Magnitude = new double[] { 60, 45, 12 };
+        MotorCommands = new double[] { 0.4, 0.4, 12 };
         break;
-      
-      case LEFT:
-        Mode = leftModes;
-        Magnitude = leftMagnitudes;
-        MotorCommands = leftMotorCommands;
-        break;
-        
-      case CENTER:
-        Mode = centerModes;
-        Magnitude = centerMagnitudes;
-        MotorCommands = centerMotorCommands;
-        break;
+      }
 
-      case RIGHT:
-        Mode = rightModes;
-        Magnitude = rightMagnitudes;
-        MotorCommands = rightMotorCommands;
+      case CENTER: {
+        Mode = new driveMode[] { driveMode.DRIVE, driveMode.EJECT };
+        Magnitude = new double[] { 60, 12 };
+        MotorCommands = new double[] { 0.4, 12 };
         break;
+      }
+
+      case RIGHT: {
+        Mode = new driveMode[] { driveMode.DRIVE, driveMode.TURN, driveMode.EJECT };
+        Magnitude = new double[] { 60, -45, 12 };
+        MotorCommands = new double[] { 0.4, 0.4, 12 };
+        break;
+      }
 
       default:
-      setSafetyFault("Routine not defined");
+        setSafetyFault("Routine not defined");
         break;
     }
 
