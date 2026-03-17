@@ -17,15 +17,11 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 //import com.revrobotics.CANSparkBase.IdleMode;
 
 import com.revrobotics.ResetMode;
-
-import org.w3c.dom.Text;
-
 import com.revrobotics.PersistMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.SparkBase;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -70,7 +66,7 @@ public class Robot extends TimedRobot {
   // clamp inputs
   launchspeed = Math.max(-1.0, Math.min(1.0, launchspeed));
   hopperspeed = Math.max(-1.0, Math.min(1.0, hopperspeed));
-
+ 
   if (safetyFaultActive) {
     ejectDelayActive = false;
     safeState();
@@ -238,14 +234,14 @@ public class Robot extends TimedRobot {
   double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
   double slowHopperSpeed = 0.75; // 0.6 value of slow hopper speed for slow launch
   double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
-  double fastHopperSpeed = 0.75; // 1.0 value of fast hopper speed for fast launch
+  double fastHopperSpeed = 1.0; // 1.0 value of fast hopper speed for fast launch
   double ejectDelay_s = 0.5; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
-  double IntakeFrontSpeed = -0.75; // -0.75 value of intake front speed
+  double IntakeFrontSpeed = -0.83; // -0.75 value of intake front speed
   double IntakeHopperSpeed = -1.0; // -1.0 value of intake hopper speed
-  double EmptyFrontSpeed = 0.75; // 0.75 value of front speed for emptying hopper
+  double EmptyFrontSpeed = 0.83; // 0.75 value of front speed for emptying hopper
   double EmptyHopperSpeed = 1.0; // 1.0 value of hopper speed for emptying hopper
 
   SparkMaxConfig configInverted = new SparkMaxConfig();
@@ -833,16 +829,6 @@ public class Robot extends TimedRobot {
       setRightSpeed(driveRightPower * driveFactor * -1);
     }
 
-    // /* Test Code */
-    // double testAxis = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
-    // double testCommand = testAxis*0.25-0.75;
-    // launcherMotor.set(testCommand);
-    // if (testAxis < -0.1) {
-    //   hopperMotor.set(0.75);
-    // }
-    // printThrottled("Test Motor Command: " + testCommand);
-    // /* Test Code End */
-
     /* Op controls */
 
     //Turning speed Control only change in the IF commands
@@ -850,19 +836,15 @@ public class Robot extends TimedRobot {
     double backSpeed = 0;
     //^^^^ Dont change this one
     //launcherMotor.set(opController.getTwist());
-    //CTS
 
     // launch
+    double launchSpeedMult =  -0.5 * opController.getRawAxis(3) + 0.5; // convert axis to 0 to 1
+
     if (opController.getRawButton(2))
     {
-      // launch fast
-      frontSpeed = fastLaunchSpeed;
-      backSpeed = fastHopperSpeed;
-    }else if (opController.getRawButton(6)) //|| opController.getRawButton(5))
-    {
-      // launch slow
-      frontSpeed = slowLaunchSpeed;
-      backSpeed = slowHopperSpeed;
+      // launch speed adjustment, between slow and fast launch speeds, based on the joystick flipper axis
+      frontSpeed = slowLaunchSpeed + launchSpeedMult * (fastLaunchSpeed - slowLaunchSpeed);
+      backSpeed = slowHopperSpeed + launchSpeedMult * (fastHopperSpeed - slowHopperSpeed);
     }
 
     // trigger to intake
@@ -893,6 +875,16 @@ public class Robot extends TimedRobot {
       backSpeed = 0;
     }
     setEjectSpeeds(frontSpeed, backSpeed); // set eject motor speeds
+
+    /* Motor Test Code, comment out when not testing */
+    // double testAxis = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
+    // double testCommand = testAxis*0.25-0.75;
+    // launcherMotor.set(testCommand);
+    // if (testAxis < -0.1) {
+    //   hopperMotor.set(0.75);
+    // }
+    // printThrottled("Test Motor Command: " + testCommand);
+    /* Test Code End */
    }
 
   /** This function is called once when the robot is disabled. */
