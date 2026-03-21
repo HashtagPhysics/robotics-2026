@@ -229,8 +229,8 @@ public class Robot extends TimedRobot {
   // specify the nominal voltage (usually between 10.0 and 12.0V)
   // nominal voltage is typically set near minimum voltage, 
   // to provide consistent performance as battery voltage drops during matches
-  private static final boolean USE_VOLT_COMP = true;
-  private static final double VOLTS_NOMINAL = 11.0;  
+  private static final boolean USE_VOLT_COMP = false;
+  private static final double VOLTS_NOMINAL = 13.0;  
   
   // Calibrate: Launch Motor Commands
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
