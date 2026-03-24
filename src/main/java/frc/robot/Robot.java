@@ -179,13 +179,15 @@ public class Robot extends TimedRobot {
     // Calibrate: factor k = speed in inches per second / motor speed command
     double k = 156; // 156 for drive, 116 for turn, need to integrate
     
-    // if (motorSpeed < 0.4) { 
-    //   k = 129;
-    // } else {
-    //   k = 19.37 * motorSpeed + 96.39;
-    // }
+    /*
+    if (motorSpeed < 0.4) { 
+      k = 129;
+    } else {
+      k = 19.37 * motorSpeed + 96.39;
+    }
+    */
     
-    double k_default = 150; // only returned in case of error
+    double k_default = 156; // only returned in case of error
 
     if (k == 0) {
       safeState(); // set motors to a safe state  
@@ -193,6 +195,7 @@ public class Robot extends TimedRobot {
       k = k_default;
     }
     return k;
+
   }
 
   /* Motoin FIlters */
@@ -229,8 +232,8 @@ public class Robot extends TimedRobot {
   // specify the nominal voltage (usually between 10.0 and 12.0V)
   // nominal voltage is typically set near minimum voltage, 
   // to provide consistent performance as battery voltage drops during matches
-  private static final boolean USE_VOLT_COMP = false;
-  private static final double VOLTS_NOMINAL = 13.0;  
+  private static final boolean USE_VOLT_COMP = true;
+  private static final double VOLTS_NOMINAL = 11.0;  
   
   // Calibrate: Launch Motor Commands
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
@@ -244,7 +247,7 @@ public class Robot extends TimedRobot {
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
-  double IntakeFrontSpeed = -0.83; // -0.75 value of intake front speed
+  double IntakeFrontSpeed = -0.75; // -0.75 value of intake front speed
   double IntakeHopperSpeed = -1.0; // -1.0 value of intake hopper speed
   double EmptyFrontSpeed = 0.83; // 0.75 value of front speed for emptying hopper
   double EmptyHopperSpeed = 1.0; // 1.0 value of hopper speed for emptying hopper
@@ -305,7 +308,7 @@ public class Robot extends TimedRobot {
   private double k; 
 
   /* These are the available routines and drive modes */
-  private enum startLoc {TEST, LEFT, CENTER, RIGHT};
+  private enum startLoc { TEST, LEFT, CENTER, RIGHT };
   private enum driveMode { DRIVE, TURN, EJECT, PAUSE }
   
   // Autonomous global variables
@@ -355,42 +358,46 @@ public class Robot extends TimedRobot {
     // Calibrate: Pick a routine
     startLoc routine = startLoc.TEST;
     System.out.println(routine + " Routine Loaded");
+
+    int angleOnWall = 30;
+    double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
+    double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
     
     // Load the autonomous routine — build fresh arrays each run
     switch (routine) {
       case TEST: {
-        Mode = new driveMode[] { driveMode.TURN };
-        Magnitude = new double[] { 180 };
-        MotorCommands = new double[] { 0.4 };
+        Mode = new driveMode[] { driveMode.DRIVE, driveMode.EJECT };
+        Magnitude = new double[] { 62 - disFromTower, 7 };
+        MotorCommands = new double[] { 0.6, 1 };
         break;
-      }
 
+      }
       case LEFT: {
         Mode = new driveMode[] { driveMode.DRIVE, driveMode.TURN, driveMode.EJECT };
-        Magnitude = new double[] { 60, 45, 12 };
-        MotorCommands = new double[] { 0.4, 0.4, 12 };
+        Magnitude = new double[] { 62 / Math.sqrt(2), -45, 7 };
+        MotorCommands = new double[] { 0.4, 0.4, 1 };
         break;
-      }
 
+      }
       case CENTER: {
         Mode = new driveMode[] { driveMode.DRIVE, driveMode.EJECT };
-        Magnitude = new double[] { 60, 12 };
-        MotorCommands = new double[] { 0.4, 12 };
+        Magnitude = new double[] { 34, 7 };
+        MotorCommands = new double[] { 0.4, 1 };
         break;
-      }
 
+      }
       case RIGHT: {
         Mode = new driveMode[] { driveMode.DRIVE, driveMode.TURN, driveMode.EJECT };
-        Magnitude = new double[] { 60, -45, 12 };
-        MotorCommands = new double[] { 0.4, 0.4, 12 };
+        Magnitude = new double[] { 62 / Math.sqrt(2), 45, 7 };
+        MotorCommands = new double[] { 0.4, 0.4, 1 };
         break;
-      }
 
+      }
       default:
         setSafetyFault("Routine not defined");
         break;
-    }
 
+    }
     numSteps = Mode.length;
 
     // Print the values to the console:
@@ -492,7 +499,7 @@ public class Robot extends TimedRobot {
 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
-            distance = (trackwidth * Math.PI * Magnitude[stepIdx]) / 360.0;
+            distance = trackwidth * Math.PI * Magnitude[stepIdx] / 360.0;
             break;
 
           case EJECT:
