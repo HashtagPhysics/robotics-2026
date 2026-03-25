@@ -75,7 +75,7 @@ public class Robot extends TimedRobot {
 
   // Launch flow
   if  (launchspeed < 0.0 && hopperspeed > 0.0) {
-    double spinUpPower = Math.signum(launchspeed) * 1.0; // always max effort in launch direction
+    double spinUpPower = launchspeed; // always max effort in launch direction
 
     // If not already in spin-up, and launcher currently near 0, start timer and spin at max
     // launcherMotor.get() returns the last commanded output (not RPM)
@@ -241,9 +241,9 @@ public class Robot extends TimedRobot {
   // Slow and Fast Launch modes are available by button mapping in Teleop
   double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
   double slowHopperSpeed = 0.75; // 0.6 value of slow hopper speed for slow launch
-  double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
+  double fastLaunchSpeed = -1; // -1.0 value of launch speed for fast launch
   double fastHopperSpeed = 1.0; // 1.0 value of fast hopper speed for fast launch
-  double ejectDelay_s = 0.5; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
+  double ejectDelay_s = 0.6; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
@@ -254,6 +254,7 @@ public class Robot extends TimedRobot {
 
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig configNormal = new SparkMaxConfig();
+  SparkMaxConfig configLauncher = new SparkMaxConfig();
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
@@ -279,13 +280,21 @@ public class Robot extends TimedRobot {
     } else {
       configNormal.disableVoltageCompensation();
     }
+    // Launcher uses COAST idle mode
+    configLauncher.inverted(false);
+    configLauncher.idleMode(IdleMode.kCoast);
+    if (USE_VOLT_COMP) {
+      configLauncher.voltageCompensation(VOLTS_NOMINAL);
+    } else {
+      configLauncher.disableVoltageCompensation();
+    }
     
     // Configure the motors with the specified settings
     driveLeftA.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveLeftB.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveRightA.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveRightB.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    launcherMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    launcherMotor.configure(configLauncher, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     hopperMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
