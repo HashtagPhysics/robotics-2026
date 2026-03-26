@@ -365,19 +365,22 @@ public class Robot extends TimedRobot {
     stepIdx = 0;
     
     // Calibrate: Pick a routine
-    startLoc routine = startLoc.TEST;
+    startLoc routine = startLoc.CENTER;
     System.out.println(routine + " Routine Loaded");
 
-    int angleOnWall = 30;
-    double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
-    double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
-    
-    // Load the autonomous routine — build fresh arrays each run
+    //int angleOnWall = 30;
+    //double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
+    //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
+    double shootDist = 62; // shooting distance in inches, from the back of the robot (shoots backwards)
+    double startDist; // distance from back of robot to center of hub, different for each routine
+    double emptyHopperTime = 6; // time to empty hopper in seconds
+
+    // Calibrate Autonomous Routines
     switch (routine) {
       case TEST: {
-        Mode = new driveMode[] { driveMode.DRIVE, driveMode.EJECT };
-        Magnitude = new double[] { 62 - disFromTower, 7 };
-        MotorCommands = new double[] { 0.6, 1 };
+        Mode = new driveMode[] { driveMode.TURN };
+        Magnitude = new double[] { 90 };
+        MotorCommands = new double[] { 0.4 };
         break;
 
       }
@@ -389,8 +392,18 @@ public class Robot extends TimedRobot {
 
       }
       case CENTER: {
-        Mode = new driveMode[] { driveMode.DRIVE, driveMode.EJECT };
-        Magnitude = new double[] { 34, 7 };
+        startDist = 23.5;
+        Mode = new driveMode[] {
+           driveMode.DRIVE,
+           driveMode.EJECT,
+        }; 
+          // driveMode.DRIVE,
+          //  driveMode.TURN, 
+          //  driveMode.PAUSE, 
+          //  driveMode.DRIVE, 
+          //  driveMode.EJECT 
+          // };
+        Magnitude = new double[] { shootDist - startDist, emptyHopperTime};
         MotorCommands = new double[] { 0.4, 1 };
         break;
 
@@ -508,7 +521,8 @@ public class Robot extends TimedRobot {
 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
-            distance = trackwidth * Math.PI * Magnitude[stepIdx] / 360.0;
+            // Calibrate Turn Adjustment
+            distance = trackwidth * Math.PI * 1.34 * Magnitude[stepIdx] / 360.0;
             break;
 
           case EJECT:
