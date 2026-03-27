@@ -371,23 +371,66 @@ public class Robot extends TimedRobot {
     //int angleOnWall = 30;
     //double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
     //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
-    double shootDist = 62; // shooting distance in inches, from the back of the robot (shoots backwards)
+    double shootDist = 57; // shooting distance in inches, from the back of the robot (shoots backwards)
     double startDist; // distance from back of robot to center of hub, different for each routine
     double emptyHopperTime = 6; // time to empty hopper in seconds
+    double autoDriveSpeed = 0.4; // motor command for drive
+
 
     // Calibrate Autonomous Routines
     switch (routine) {
       case TEST: {
-        Mode = new driveMode[] { driveMode.TURN };
-        Magnitude = new double[] { 90 };
-        MotorCommands = new double[] { 0.4 };
+        Mode = new driveMode[] { 
+          driveMode.TURN 
+        };
+        Magnitude = new double[] { 
+          42 
+        };
+        MotorCommands = new double[] { 
+          autoDriveSpeed
+        };
         break;
 
       }
       case LEFT: {
-        Mode = new driveMode[] { driveMode.DRIVE, driveMode.TURN, driveMode.EJECT };
-        Magnitude = new double[] { 62 / Math.sqrt(2), -45, 7 };
-        MotorCommands = new double[] { 0.4, 0.4, 1 };
+        startDist = 47;
+        Mode = new driveMode[] {
+           driveMode.DRIVE,
+           driveMode.EJECT,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.PAUSE,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.EJECT
+        }; 
+          
+        Magnitude = new double[] { 
+          shootDist - startDist,
+          emptyHopperTime,
+          120-(shootDist - startDist),
+          42,
+          23,
+          4,
+          -23,
+          -42,
+          -(120-(shootDist - startDist)),
+          emptyHopperTime
+        };
+        MotorCommands = new double[] { 
+          autoDriveSpeed, 
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed
+        };
         break;
 
       }
@@ -397,23 +440,34 @@ public class Robot extends TimedRobot {
            driveMode.DRIVE,
            driveMode.EJECT,
         }; 
-          // driveMode.DRIVE,
-          //  driveMode.TURN, 
-          //  driveMode.PAUSE, 
-          //  driveMode.DRIVE, 
-          //  driveMode.EJECT 
-          // };
-        Magnitude = new double[] { shootDist - startDist, emptyHopperTime};
-        MotorCommands = new double[] { 0.4, 1 };
+          
+        Magnitude = new double[] { 
+          shootDist - startDist,
+          emptyHopperTime
+        };
+        MotorCommands = new double[] { 
+          autoDriveSpeed, 
+          1 
+        };
         break;
 
       }
       case RIGHT: {
-        Mode = new driveMode[] { driveMode.DRIVE, driveMode.TURN, driveMode.EJECT };
-        Magnitude = new double[] { 62 / Math.sqrt(2), 45, 7 };
-        MotorCommands = new double[] { 0.4, 0.4, 1 };
+        startDist = 47;
+        Mode = new driveMode[] {
+           driveMode.DRIVE,
+           driveMode.EJECT,
+        }; 
+          
+        Magnitude = new double[] { 
+          shootDist - startDist,
+          emptyHopperTime
+        };
+        MotorCommands = new double[] { 
+          autoDriveSpeed, 
+          autoDriveSpeed
+        };
         break;
-
       }
       default:
         setSafetyFault("Routine not defined");
