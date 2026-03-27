@@ -382,12 +382,24 @@ public class Robot extends TimedRobot {
     switch (routine) {
       case TEST: {
         Mode = new driveMode[] { 
-          driveMode.TURN 
+          driveMode.TURN,
+          driveMode.PAUSE,
+          driveMode.TURN,
+          driveMode.PAUSE,
+          driveMode.TURN
         };
         Magnitude = new double[] { 
-          42 
+          -90,
+          4,
+          90,
+          4,
+          138
         };
         MotorCommands = new double[] { 
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
           autoDriveSpeed
         };
         break;
@@ -455,12 +467,12 @@ public class Robot extends TimedRobot {
         Magnitude = new double[] { 
           shootDist - startDist,
           emptyHopperTime,
-          -60,
-          150,
-          -120,
-          -38,
+          -90,
+          133,
+          -90,
+          -81,
           4,
-          -23,
+          81,
           136,
           -(120-(shootDist - startDist)),
           emptyHopperTime
