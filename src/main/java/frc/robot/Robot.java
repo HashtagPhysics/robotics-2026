@@ -384,20 +384,14 @@ public class Robot extends TimedRobot {
         Mode = new driveMode[] { 
           driveMode.TURN,
           driveMode.PAUSE,
-          driveMode.TURN,
-          driveMode.PAUSE,
           driveMode.TURN
         };
         Magnitude = new double[] { 
-          -90,
+          -138,
           4,
-          90,
-          4,
-          138
+          138,
         };
         MotorCommands = new double[] { 
-          autoDriveSpeed,
-          autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed
@@ -424,11 +418,11 @@ public class Robot extends TimedRobot {
           shootDist - startDist,
           emptyHopperTime,
           120-(shootDist - startDist),
-          -139,
-          23,
+          -138,
+          -48,
           4,
-          -23,
-          136,
+          48,
+          138,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
@@ -619,7 +613,7 @@ public class Robot extends TimedRobot {
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
             // Calibrate Turn Adjustment
-            distance = trackwidth * Math.PI * 1.34 * Magnitude[stepIdx] / 360.0;
+            distance = trackwidth * Math.PI * 1.15 * Magnitude[stepIdx] / 360.0;
             break;
 
           case EJECT:
