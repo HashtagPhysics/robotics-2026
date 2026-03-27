@@ -238,8 +238,8 @@ public class Robot extends TimedRobot {
   // Slow Launch is typically used for autonomous, because fuel is limited
   // Slow and Fast Launch modes are available by button mapping in Teleop
   double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
-  double slowHopperSpeed = 0.75; // 0.6 value of slow hopper speed for slow launch
-  double fastLaunchSpeed = -1; // -1.0 value of launch speed for fast launch
+  double slowHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
+  double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
   double fastHopperSpeed = 1.0; // 1.0 value of fast hopper speed for fast launch
   double ejectDelay_s = 0.6; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
@@ -372,7 +372,7 @@ public class Robot extends TimedRobot {
     //int angleOnWall = 30;
     //double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
     //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
-    double shootDist = 57; // shooting distance in inches, from the back of the robot (shoots backwards)
+    double shootDist = 54; // shooting distance in inches, from the back of the robot (shoots backwards)
     double startDist; // distance from back of robot to center of hub, different for each routine
     double emptyHopperTime = 6; // time to empty hopper in seconds
     double autoDriveSpeed = 0.4; // motor command for drive
