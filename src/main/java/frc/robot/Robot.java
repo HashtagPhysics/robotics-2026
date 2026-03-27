@@ -214,9 +214,7 @@ public class Robot extends TimedRobot {
   double driveFactor = 0.6;
   double autoStart = 0;
   private static final double EPS = 0.01; // deadband: treat |v| < EPS as zero
-  private static final String kDefaultAuto = "Default";
-  private static final String kCustomAuto = "My Auto";
-  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  private final SendableChooser<startLoc> autoChooser = new SendableChooser<>();
 
   // print a message to the driver station, at a lower rate
   private int consolePrintCounter = 0;
@@ -296,10 +294,13 @@ public class Robot extends TimedRobot {
     driveRightB.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     launcherMotor.configure(configLauncher, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     hopperMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-
-    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
-    m_chooser.addOption("My Auto", kCustomAuto);
-    SmartDashboard.putData("Auto choices", m_chooser);
+ 
+    // Populate autonomous chooser (shows as a dropdown on SmartDashboard/Shuffleboard)
+    autoChooser.setDefaultOption("Center (default)", startLoc.CENTER);
+    autoChooser.addOption("Test", startLoc.TEST);
+    autoChooser.addOption("Left", startLoc.LEFT);
+    autoChooser.addOption("Right", startLoc.RIGHT);
+    SmartDashboard.putData("Auto Routine", autoChooser);
   }
 
   /**
@@ -354,9 +355,13 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
-    //m_autoSelected = m_chooser.getSelected(); // is this used?
-    // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
-    //System.out.println("Auto selected: " + m_autoSelected);
+    // Read chooser selection (must be chosen on the dashboard BEFORE enabling)
+    startLoc routine = autoChooser.getSelected();
+    if (routine == null) { // fallback if nothing selected
+      routine = startLoc.CENTER;
+    }
+    // routine = startLoc.CENTER;
+    System.out.println(routine + " Routine Loaded");
 
     // Reset safety faults
     safetyFaultActive = false;
@@ -364,10 +369,6 @@ public class Robot extends TimedRobot {
     // Initialize the routine step counter
     stepIdx = 0;
     
-    // Calibrate: Pick a routine
-    startLoc routine = startLoc.CENTER;
-    System.out.println(routine + " Routine Loaded");
-
     //int angleOnWall = 30;
     //double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
     //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
