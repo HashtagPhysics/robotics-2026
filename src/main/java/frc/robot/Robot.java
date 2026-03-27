@@ -240,7 +240,7 @@ public class Robot extends TimedRobot {
   double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
   double slowHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
   double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
-  double fastHopperSpeed = 1.0; // 1.0 value of fast hopper speed for fast launch
+  double fastHopperSpeed = 0.8; // 1.0 value of fast hopper speed for fast launch
   double ejectDelay_s = 0.6; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
