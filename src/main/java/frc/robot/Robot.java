@@ -412,11 +412,11 @@ public class Robot extends TimedRobot {
           shootDist - startDist,
           emptyHopperTime,
           120-(shootDist - startDist),
-          42,
+          -139,
           23,
           4,
           -23,
-          -42,
+          136,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
@@ -440,15 +440,45 @@ public class Robot extends TimedRobot {
         Mode = new driveMode[] {
            driveMode.DRIVE,
            driveMode.EJECT,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.PAUSE,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.EJECT
+           
         }; 
           
         Magnitude = new double[] { 
           shootDist - startDist,
+          emptyHopperTime,
+          -60,
+          150,
+          -120,
+          -38,
+          4,
+          -23,
+          136,
+          -(120-(shootDist - startDist)),
           emptyHopperTime
+
         };
         MotorCommands = new double[] { 
           autoDriveSpeed, 
-          1 
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+
         };
         break;
 
