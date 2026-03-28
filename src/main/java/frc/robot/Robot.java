@@ -371,7 +371,7 @@ public class Robot extends TimedRobot {
     //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
     double shootDist = 54; // shooting distance in inches, from the back of the robot (shoots backwards)
     double startDist; // distance from back of robot to center of hub, different for each routine
-    double emptyHopperTime = 5; // time to empty hopper in seconds
+    double emptyHopperTime = 5.5; // time to empty hopper in seconds
     double autoDriveSpeed = 0.5; // motor command for drive
 
 
@@ -414,12 +414,12 @@ public class Robot extends TimedRobot {
         Magnitude = new double[] { 
           shootDist - startDist,
           emptyHopperTime,
-          120-(shootDist - startDist),
-          -276,
-          -45,
-          4,
-          45,
-          276,
+          120 - (shootDist - startDist) + 12,
+          -276 - 2,
+          -48 - 12,
+          3,
+          48,
+          276 - 6,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
