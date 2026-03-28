@@ -356,7 +356,7 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousInit() {
     // Calibrate: Set the starting location
-    startLoc routine = startLoc.CENTER;
+    startLoc routine = startLoc.RIGHT;
 
     System.out.println(routine + " Routine Loaded");
 
@@ -371,8 +371,8 @@ public class Robot extends TimedRobot {
     //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
     double shootDist = 54; // shooting distance in inches, from the back of the robot (shoots backwards)
     double startDist; // distance from back of robot to center of hub, different for each routine
-    double emptyHopperTime = 6; // time to empty hopper in seconds
-    double autoDriveSpeed = 0.4; // motor command for drive
+    double emptyHopperTime = 5; // time to empty hopper in seconds
+    double autoDriveSpeed = 0.5; // motor command for drive
 
 
     // Calibrate Autonomous Routines
@@ -415,11 +415,11 @@ public class Robot extends TimedRobot {
           shootDist - startDist,
           emptyHopperTime,
           120-(shootDist - startDist),
-          -138,
-          -48,
+          -276,
+          -45,
           4,
-          48,
-          138,
+          45,
+          276,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
