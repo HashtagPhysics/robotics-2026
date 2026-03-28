@@ -416,15 +416,9 @@ public class Robot extends TimedRobot {
           emptyHopperTime,
           120-(shootDist - startDist),
           -138,
-<<<<<<< Updated upstream
           -48,
           4,
           48,
-=======
-          -23,
-          4,
-          23,
->>>>>>> Stashed changes
           138,
           -(120-(shootDist - startDist)),
           emptyHopperTime
@@ -468,7 +462,7 @@ public class Robot extends TimedRobot {
           -90,
           -93,
           4,
-          23,
+          48,
           138,
           -(120-(shootDist - startDist)),
           emptyHopperTime
@@ -517,7 +511,7 @@ public class Robot extends TimedRobot {
           -90,
           -93,
           4,
-          23,
+          48,
           138,
           -(120-(shootDist - startDist)),
           emptyHopperTime
