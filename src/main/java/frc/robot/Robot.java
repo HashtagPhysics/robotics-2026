@@ -261,7 +261,7 @@ public class Robot extends TimedRobot {
   public void robotInit() {
     /* Set up our motor settings*/
 
-    CameraServer.startAutomaticCapture(0);
+    //CameraServer.startAutomaticCapture(0);
     
     // Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
@@ -296,11 +296,11 @@ public class Robot extends TimedRobot {
     hopperMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
  
     // Populate autonomous chooser (shows as a dropdown on SmartDashboard/Shuffleboard)
-    autoChooser.setDefaultOption("Center (default)", startLoc.CENTER);
-    autoChooser.addOption("Test", startLoc.TEST);
-    autoChooser.addOption("Left", startLoc.LEFT);
-    autoChooser.addOption("Right", startLoc.RIGHT);
-    SmartDashboard.putData("Auto Routine", autoChooser);
+    //autoChooser.setDefaultOption("Center (default)", startLoc.CENTER);
+    //autoChooser.addOption("Test", startLoc.TEST);
+    //autoChooser.addOption("Left", startLoc.LEFT);
+    //autoChooser.addOption("Right", startLoc.RIGHT);
+    //SmartDashboard.putData("Auto Routine", autoChooser);
   }
 
   /**
@@ -355,12 +355,9 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
-    // Read chooser selection (must be chosen on the dashboard BEFORE enabling)
-    startLoc routine = autoChooser.getSelected();
-    if (routine == null) { // fallback if nothing selected
-      routine = startLoc.CENTER;
-    }
-    // routine = startLoc.CENTER;
+    // Calibrate: Set the starting location
+    startLoc routine = startLoc.CENTER;
+
     System.out.println(routine + " Routine Loaded");
 
     // Reset safety faults
@@ -399,7 +396,7 @@ public class Robot extends TimedRobot {
         break;
 
       }
-      case LEFT: {
+      case RIGHT: {
         startDist = 47;
         Mode = new driveMode[] {
            driveMode.DRIVE,
@@ -419,9 +416,15 @@ public class Robot extends TimedRobot {
           emptyHopperTime,
           120-(shootDist - startDist),
           -138,
+<<<<<<< Updated upstream
           -48,
           4,
           48,
+=======
+          -23,
+          4,
+          23,
+>>>>>>> Stashed changes
           138,
           -(120-(shootDist - startDist)),
           emptyHopperTime
@@ -454,20 +457,19 @@ public class Robot extends TimedRobot {
            driveMode.DRIVE,
            driveMode.TURN,
            driveMode.DRIVE,
-           driveMode.EJECT
-           
+           driveMode.EJECT           
         }; 
           
         Magnitude = new double[] { 
           shootDist - startDist,
           emptyHopperTime,
           -90,
-          133,
+          127,
           -90,
-          -81,
+          -93,
           4,
-          81,
-          136,
+          23,
+          138,
           -(120-(shootDist - startDist)),
           emptyHopperTime
 
@@ -489,19 +491,49 @@ public class Robot extends TimedRobot {
         break;
 
       }
-      case RIGHT: {
+      case LEFT: {
         startDist = 47;
         Mode = new driveMode[] {
            driveMode.DRIVE,
            driveMode.EJECT,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.PAUSE,
+           driveMode.DRIVE,
+           driveMode.TURN,
+           driveMode.DRIVE,
+           driveMode.EJECT
         }; 
           
         Magnitude = new double[] { 
           shootDist - startDist,
+          emptyHopperTime,
+          33-(shootDist - startDist),
+          -132,
+          205,
+          -90,
+          -93,
+          4,
+          23,
+          138,
+          -(120-(shootDist - startDist)),
           emptyHopperTime
         };
         MotorCommands = new double[] { 
           autoDriveSpeed, 
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
+          autoDriveSpeed,
           autoDriveSpeed
         };
         break;
