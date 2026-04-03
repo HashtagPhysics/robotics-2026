@@ -241,7 +241,7 @@ public class Robot extends TimedRobot {
   double slowHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
   double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
   double fastHopperSpeed = 0.8; // 1.0 value of fast hopper speed for fast launch
-  double ejectDelay_s = 0.6; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
+  double ejectDelay_s = 1.5; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
@@ -279,7 +279,7 @@ public class Robot extends TimedRobot {
       configNormal.disableVoltageCompensation();
     }
     // Launcher uses COAST idle mode
-    configLauncher.inverted(false);
+    configLauncher.inverted(true);
     configLauncher.idleMode(IdleMode.kCoast);
     if (USE_VOLT_COMP) {
       configLauncher.voltageCompensation(VOLTS_NOMINAL);
@@ -293,7 +293,7 @@ public class Robot extends TimedRobot {
     driveRightA.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveRightB.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     launcherMotor.configure(configLauncher, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-    hopperMotor.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+    hopperMotor.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
  
     // Populate autonomous chooser (shows as a dropdown on SmartDashboard/Shuffleboard)
     //autoChooser.setDefaultOption("Center (default)", startLoc.CENTER);
@@ -356,7 +356,7 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousInit() {
     // Calibrate: Set the starting location
-    startLoc routine = startLoc.RIGHT;
+    startLoc routine = startLoc.CENTER;
 
     System.out.println(routine + " Routine Loaded");
 
@@ -892,7 +892,7 @@ public class Robot extends TimedRobot {
 //Percentage of motor speed ONLY SET BETWEEN 0 and 1
 //Calibrate: Teleop Motor Speeds, Fast and Slow
     if(driverController.getLeftBumper()==true) {
-      driveFactor = 0.7; // 0.7
+      driveFactor = 1; // 0.7
     } else {
       driveFactor= 0.5; // 0.5
     }
