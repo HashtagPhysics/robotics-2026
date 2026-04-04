@@ -56,60 +56,6 @@ public class Robot extends TimedRobot {
     driveRightB.set(speed);
   };
 
-  // Command launch and hopper motors
-  // intake: launch motor (-) | hopper motor (-)
-  // launch: launch motor (-) | hopper motor (+)
-  // unstick: launch motor (0) | hopper motor (-)
-  // empty hopper: launch motor (+) | hopper motor (+)
-  private void setEjectSpeeds(double launchspeed, double hopperspeed) {
-  
-  if (safetyFaultActive) {
-    safeState();
-    return;
-  }
-
-  // Launch flow
-  if  (launchspeed < 0.0 && hopperspeed > 0.0) {
-    // set requested speeds immediately
-    launcherMotor.set(launchspeed);
-    hopperMotor.set(hopperspeed);
-    return;
-  }
-
-  // Stop / reset
-  if (Math.abs(launchspeed) < EPS && Math.abs(hopperspeed) < EPS) {
-    launcherMotor.set(0.0);
-    hopperMotor.set(0.0);
-    return;
-  }
-
-  // Intake: both negative -> run immediately
-  if (launchspeed < 0.0 && hopperspeed < 0.0) {
-    launcherMotor.set(launchspeed);
-    hopperMotor.set(hopperspeed);
-    return;
-  }
-
-  // Unstick: launcher 0, hopper negative -> run immediately
-  if (Math.abs(launchspeed) < EPS && hopperspeed < 0.0) {
-    launcherMotor.set(0.0);
-    hopperMotor.set(hopperspeed);
-    return;
-  }
-
-  // Empty hopper: both positive -> run immediately
-  if (launchspeed > 0.0 && hopperspeed > 0.0) {
-    launcherMotor.set(launchspeed);
-    hopperMotor.set(hopperspeed);
-    return;
-  }
-
-  // Any other unexpected combination: set directly (spin-up not used)
-  System.err.println("Error: Unknown state in setEjectSpeeds() - no delay triggered for launch command");
-  launcherMotor.set(launchspeed);
-  hopperMotor.set(hopperspeed);
-}
-
   public void setSafetyFault(String message)
   {
       safetyFaultActive = true;
@@ -309,6 +255,10 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
+
+    // Spin up the launcher
+    launcherMotor.set(slowLaunchSpeed);
+
     // Calibrate: Set the starting location
     startLoc routine = startLoc.CENTER;
 
@@ -518,6 +468,13 @@ public class Robot extends TimedRobot {
     double distance = 0;
     double stepTime;
 
+    if (safetyFaultActive) {
+      safeState(); // Set all motors to zero
+      return; // Skip the rest of the function
+    }
+    else {
+      launcherMotor.set(slowLaunchSpeed); // Keep launcher spinning during autonomous
+    }
 
     // Check for end of routine
     // index starts at zero and increments to (numSteps - 1)
@@ -801,16 +758,10 @@ public class Robot extends TimedRobot {
             break;
 
           case EJECT:
-            if (forward){
               /* Launch fuel */
-              setEjectSpeeds(slowLaunchSpeed, launchHopperSpeed); // set eject speeds, which handles the delay logic internally
+              // Assumes launcher is already spinning
+              hopperMotor.set(launchHopperSpeed);
               SmartDashboard.putNumber("Eject Time Commanded", motorCommand); // Display commanded eject time
-
-            } else {
-              /* Intake fuel */
-              setEjectSpeeds(IntakeFrontSpeed, IntakeHopperSpeed);
-              SmartDashboard.putNumber("Intake Time Commanded", motorCommand); // Display commanded intake time
-            }
             break;
 
           case PAUSE:
@@ -882,6 +833,12 @@ public class Robot extends TimedRobot {
     //^^^^ Dont change this one
     //launcherMotor.set(opController.getTwist());
 
+  
+  // intake: launch motor (-) | hopper motor (-)
+  // launch: launch motor (-) | hopper motor (+)
+  // unstick: launch motor (0) | hopper motor (-)
+  // empty hopper: launch motor (+) | hopper motor (+)
+
     // calculate launch speed
     double launchSpeedMult =  -0.5 * opController.getRawAxis(3) + 0.5; // convert axis to 0 to 1
     
@@ -894,6 +851,7 @@ public class Robot extends TimedRobot {
       launchSpeed = slowLaunchSpeed + launchSpeedMult * (fastLaunchSpeed - slowLaunchSpeed);
     }
 
+    // main telop button controls, priority from top to bottom (if multiple buttons pressed)
     if (opController.getRawButton(2))
     {
       // launch speed adjustment, between slow and fast launch speeds, based on the joystick flipper axis
@@ -910,12 +868,11 @@ public class Robot extends TimedRobot {
     {
       frontSpeed = IntakeFrontSpeed;
       backSpeed = IntakeHopperSpeed;
- 
     }
     else if (opController.getRawButton(3))
     {
       // Unstick
-      frontSpeed = 0;
+      frontSpeed = launchSpeed;
       backSpeed = unstickHopperSpeed;
     }
     else if (opController.getRawButton(5))
@@ -928,10 +885,12 @@ public class Robot extends TimedRobot {
     {
       // Action for no buttons pressed
       // Do not change away from 0 
-      frontSpeed = 0;
+      frontSpeed = launchSpeed;
       backSpeed = 0;
     }
-    setEjectSpeeds(frontSpeed, backSpeed); // set eject motor speeds
+  
+    launcherMotor.set(frontSpeed);
+    hopperMotor.set(backSpeed);
 
     /* Motor Test Code, comment out when not testing */
     // double testAxis = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
