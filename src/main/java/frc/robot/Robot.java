@@ -139,15 +139,16 @@ public class Robot extends TimedRobot {
   // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
   // Slow Launch is typically used for autonomous, because fuel is limited
   // Slow and Fast Launch modes are available by button mapping in Teleop
-  double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
-  double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
+  // launcher now configured so positive command -> launch direction
+  double slowLaunchSpeed = 0.83; // positive value for slow launch
+  double fastLaunchSpeed = 1.0;  // positive value for fast launch
   double launchHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
-  double IntakeFrontSpeed = -0.75; // -0.75 value of intake front speed
+  double IntakeFrontSpeed = 0.75; // -0.75 value of intake front speed
   double IntakeHopperSpeed = -1.0; // -1.0 value of intake hopper speed
-  double EmptyFrontSpeed = 0.83; // 0.75 value of front speed for emptying hopper
+  double EmptyFrontSpeed = -1.0; // 0.75 value of front speed for emptying hopper
   double EmptyHopperSpeed = 1.0; // 1.0 value of hopper speed for emptying hopper
 
   SparkMaxConfig configInverted = new SparkMaxConfig();
@@ -179,7 +180,7 @@ public class Robot extends TimedRobot {
       configNormal.disableVoltageCompensation();
     }
     // Launcher uses COAST idle mode
-    configLauncher.inverted(true);
+    configLauncher.inverted(false);
     configLauncher.idleMode(IdleMode.kCoast);
     if (USE_VOLT_COMP) {
       configLauncher.voltageCompensation(VOLTS_NOMINAL);
