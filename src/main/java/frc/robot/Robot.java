@@ -63,49 +63,13 @@ public class Robot extends TimedRobot {
   // empty hopper: launch motor (+) | hopper motor (+)
   private void setEjectSpeeds(double launchspeed, double hopperspeed) {
   
-  // clamp inputs
-  launchspeed = Math.max(-1.0, Math.min(1.0, launchspeed));
-  hopperspeed = Math.max(-1.0, Math.min(1.0, hopperspeed));
- 
   if (safetyFaultActive) {
-    ejectDelayActive = false;
     safeState();
     return;
   }
 
   // Launch flow
   if  (launchspeed < 0.0 && hopperspeed > 0.0) {
-    double spinUpPower = launchspeed; // always max effort in launch direction
-
-    // If not already in spin-up, and launcher currently near 0, start timer and spin at max
-    // launcherMotor.get() returns the last commanded output (not RPM)
-    // If we add an encoder, replace this check with one based on actual speed.
-    if (!ejectDelayActive && Math.abs(launcherMotor.get()) < EPS) {
-      ejectDelayActive = true;
-      ejectStartTime_s = Timer.getFPGATimestamp();
-      launcherMotor.set(spinUpPower);
-      hopperMotor.set(0.0);
-      return;
-    }
-
-    // If spin-up active, check elapsed time
-    if (ejectDelayActive) {
-      double elapsed = Timer.getFPGATimestamp() - ejectStartTime_s;
-      if (elapsed < ejectDelay_s) {
-        // Continue spin-up at max effort, keep hopper off
-        launcherMotor.set(spinUpPower);
-        hopperMotor.set(0.0);
-        return;
-      } else {
-        // Spin-up complete: set requested speeds and clear spin-up state
-        ejectDelayActive = false;
-        launcherMotor.set(launchspeed);
-        hopperMotor.set(hopperspeed);
-        return;
-      }
-    }
-
-    // Fallback: if launch requested but we didn't trigger spin-up (e.g., launcher already running),
     // set requested speeds immediately
     launcherMotor.set(launchspeed);
     hopperMotor.set(hopperspeed);
@@ -114,7 +78,6 @@ public class Robot extends TimedRobot {
 
   // Stop / reset
   if (Math.abs(launchspeed) < EPS && Math.abs(hopperspeed) < EPS) {
-    ejectDelayActive = false;
     launcherMotor.set(0.0);
     hopperMotor.set(0.0);
     return;
@@ -122,7 +85,6 @@ public class Robot extends TimedRobot {
 
   // Intake: both negative -> run immediately
   if (launchspeed < 0.0 && hopperspeed < 0.0) {
-    ejectDelayActive = false;
     launcherMotor.set(launchspeed);
     hopperMotor.set(hopperspeed);
     return;
@@ -130,7 +92,6 @@ public class Robot extends TimedRobot {
 
   // Unstick: launcher 0, hopper negative -> run immediately
   if (Math.abs(launchspeed) < EPS && hopperspeed < 0.0) {
-    ejectDelayActive = false;
     launcherMotor.set(0.0);
     hopperMotor.set(hopperspeed);
     return;
@@ -138,7 +99,6 @@ public class Robot extends TimedRobot {
 
   // Empty hopper: both positive -> run immediately
   if (launchspeed > 0.0 && hopperspeed > 0.0) {
-    ejectDelayActive = false;
     launcherMotor.set(launchspeed);
     hopperMotor.set(hopperspeed);
     return;
@@ -146,7 +106,6 @@ public class Robot extends TimedRobot {
 
   // Any other unexpected combination: set directly (spin-up not used)
   System.err.println("Error: Unknown state in setEjectSpeeds() - no delay triggered for launch command");
-  ejectDelayActive = false;
   launcherMotor.set(launchspeed);
   hopperMotor.set(hopperspeed);
 }
@@ -209,13 +168,10 @@ public class Robot extends TimedRobot {
   /* Global variables */
   boolean safetyFaultActive = false;
   boolean DisplaySafeState = true;
-  boolean ejectDelayActive = false;
-  double ejectStartTime_s = 0;
   double driveFactor = 0.6;
   double autoStart = 0;
   private static final double EPS = 0.01; // deadband: treat |v| < EPS as zero
-  private final SendableChooser<startLoc> autoChooser = new SendableChooser<>();
-
+  
   // print a message to the driver station, at a lower rate
   private int consolePrintCounter = 0;
   private static final int CONSOLE_PRINT_INTERVAL = 25; // print once every 25 loops (~0.5s @ 20ms)
@@ -238,10 +194,8 @@ public class Robot extends TimedRobot {
   // Slow Launch is typically used for autonomous, because fuel is limited
   // Slow and Fast Launch modes are available by button mapping in Teleop
   double slowLaunchSpeed = -0.83; // -1.0 value of launch speed for slow launch
-  double slowHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
   double fastLaunchSpeed = -1.0; // -1.0 value of launch speed for fast launch
-  double fastHopperSpeed = 0.8; // 1.0 value of fast hopper speed for fast launch
-  double ejectDelay_s = 1.5; // 0.5 time it takes for launcher to spin up, typically 0.2 to 1 seconds
+  double launchHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
   double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: Intake Motor Commands
@@ -849,7 +803,7 @@ public class Robot extends TimedRobot {
           case EJECT:
             if (forward){
               /* Launch fuel */
-              setEjectSpeeds(slowLaunchSpeed, slowHopperSpeed); // set eject speeds, which handles the delay logic internally
+              setEjectSpeeds(slowLaunchSpeed, launchHopperSpeed); // set eject speeds, which handles the delay logic internally
               SmartDashboard.putNumber("Eject Time Commanded", motorCommand); // Display commanded eject time
 
             } else {
@@ -924,22 +878,35 @@ public class Robot extends TimedRobot {
     //Turning speed Control only change in the IF commands
     double frontSpeed = 0;
     double backSpeed = 0;
+    double launchSpeed = 0;
     //^^^^ Dont change this one
     //launcherMotor.set(opController.getTwist());
 
-    // launch
+    // calculate launch speed
     double launchSpeedMult =  -0.5 * opController.getRawAxis(3) + 0.5; // convert axis to 0 to 1
+    
+    // if the launch speed multiplier is below a certain threshold, turn launcher off
+    if (launchSpeedMult < 0.2) {
+      launchSpeed = 0;
+    }
+    // set the launch speed
+    else {
+      launchSpeed = slowLaunchSpeed + launchSpeedMult * (fastLaunchSpeed - slowLaunchSpeed);
+    }
 
     if (opController.getRawButton(2))
     {
       // launch speed adjustment, between slow and fast launch speeds, based on the joystick flipper axis
-      frontSpeed = slowLaunchSpeed + launchSpeedMult * (fastLaunchSpeed - slowLaunchSpeed);
-      backSpeed = slowHopperSpeed + launchSpeedMult * (fastHopperSpeed - slowHopperSpeed);
+      frontSpeed = launchSpeed;
+      backSpeed = launchHopperSpeed;
+      // If launch speed is zero while button is held, print a throttled warning to prompt flipper adjustment
+      if (launchSpeed == 0.0) {
+        printThrottled("Warning: No launch! Turn on joystick flipper.");
+      }
     }
 
     // trigger to intake
     else if(opController.getRawButton(1))
-
     {
       frontSpeed = IntakeFrontSpeed;
       backSpeed = IntakeHopperSpeed;
