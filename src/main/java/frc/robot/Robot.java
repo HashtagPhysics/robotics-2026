@@ -60,7 +60,7 @@ public class Robot extends TimedRobot {
   // VERY IMPORTANT: NEO motors must be configured as brushless!
   // If a NEO is configured as brushed, it will destroy the motor
   static final boolean launcherMotorNEO = true; // Set to true if using NEO motor for launcher, false if using brushed motor 
-  static final boolean launcherMotorClosedLoop = false; // Set to true to use closed loop control for launcher motor, false for open loop voltage control
+  static final boolean launcherMotorClosedLoop = true; // Set to true to use closed loop control for launcher motor, false for open loop voltage control
 
   // Calibrate: Teleop Motor Speeds, Fast and Slow
   // Percentage of motor speed ONLY SET BETWEEN 0 and 1
@@ -82,8 +82,8 @@ public class Robot extends TimedRobot {
   static final double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
 
   // Calibrate: NEO motor controls
-  static final double slowLaunchRPM = 3300; // target RPM for slow launch mode, if using NEO motor
-  static final double fastLaunchRPM = 5000; // target RPM for fast launch mode, if using NEO motor
+  static final double slowLaunchRPM = 2900; // target RPM for slow launch mode, if using NEO motor
+  static final double fastLaunchRPM = 3500; // target RPM for fast launch mode, if using NEO motor
   static final double launchRPMTolerance = 150; // tolerance for considering launcher "at speed", in RPM, if using NEO motor
 
   // Calibrate: Intake Motor Commands
@@ -128,16 +128,16 @@ public class Robot extends TimedRobot {
     }
 
     // Launcher config
-    configLauncher.inverted(false);
+    configLauncher.inverted(true);
     configLauncher.smartCurrentLimit(40);
     configLauncher.idleMode(IdleMode.kCoast);
     if (launcherMotorNEO && launcherMotorClosedLoop) {
       configLauncher
         .closedLoop    
-          .pid(0, 0, 0) // slot 0
+          .pid(0.0018, 0, 0) // slot 0
           .feedForward
-            .kS(0.5) // slot 0 by default
-            .kV(0);
+            .kS(0) // slot 0 by default
+            .kV(0.00211);
     }
     if (USE_VOLT_COMP) {
       configLauncher.voltageCompensation(VOLTS_NOMINAL);
@@ -210,7 +210,7 @@ public class Robot extends TimedRobot {
          launchController.setSetpoint(targetRPM, ControlType.kVelocity);
        } else {
          // Open loop control with NEO, using a feedforward model to convert target RPM to motor command
-         double cmd = (targetRPM + 33.364) / 3849.5;
+         double cmd = 0.0001748*targetRPM + 0.0624444;
          cmd = Math.max(-1.0, Math.min(1.0, cmd));
          launcherMotor.set(cmd);
        }
@@ -427,7 +427,8 @@ public class Robot extends TimedRobot {
       case CENTER: {
         startDist = 23.5;
         Mode = new driveMode[] {
-           driveMode.DRIVE,
+          driveMode.PAUSE, // pause at the start to allow launcher to spin up 
+          driveMode.DRIVE,
            driveMode.EJECT,
            driveMode.TURN,
            driveMode.DRIVE,
@@ -441,6 +442,7 @@ public class Robot extends TimedRobot {
         }; 
           
         Magnitude = new double[] { 
+          1, // pause for 1 second at the start to allow launcher to spin up
           shootDist - startDist,
           emptyHopperTime,
           -90,
@@ -455,6 +457,7 @@ public class Robot extends TimedRobot {
 
         };
         MotorCommands = new double[] { 
+          autoDriveSpeed,
           autoDriveSpeed, 
           autoDriveSpeed,
           autoDriveSpeed,
