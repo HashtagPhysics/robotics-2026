@@ -20,6 +20,7 @@ import com.revrobotics.ResetMode;
 import com.revrobotics.PersistMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 
@@ -35,9 +36,10 @@ public class Robot extends TimedRobot {
   SparkMax driveLeftB = new SparkMax(3,MotorType.kBrushed);
   SparkMax driveRightA = new SparkMax(4,MotorType.kBrushed);
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
-  SparkMax launcherMotor = new SparkMax(7, MotorType.kBrushed);
+  //SparkMax launcherMotor = new SparkMax(7, MotorType.kBrushed);
+  SparkMax launcherMotor = new SparkMax(10, MotorType.kBrushless);
   SparkMax hopperMotor = new SparkMax(6, MotorType.kBrushed);
- 
+
   // These functions set the speed of the drive motors
   // any bias between the left and right motors is handled by 
   // applying a multiplier to the left motors
@@ -163,7 +165,7 @@ public class Robot extends TimedRobot {
     /* Set up our motor settings*/
 
     //CameraServer.startAutomaticCapture(0);
-    
+
     // Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
     configInverted.idleMode(IdleMode.kBrake);
@@ -180,7 +182,8 @@ public class Robot extends TimedRobot {
       configNormal.disableVoltageCompensation();
     }
     // Launcher uses COAST idle mode
-    configLauncher.inverted(false);
+    configLauncher.inverted(true);
+    configLauncher.smartCurrentLimit(40);
     configLauncher.idleMode(IdleMode.kCoast);
     if (USE_VOLT_COMP) {
       configLauncher.voltageCompensation(VOLTS_NOMINAL);
