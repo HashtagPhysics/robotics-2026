@@ -10,18 +10,19 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /* REV Imports */
 //import com.revrobotics.CANSparkBase.IdleMode;
 
+// SparkMAX API imports
 import com.revrobotics.ResetMode;
 import com.revrobotics.PersistMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 
 /**
@@ -31,32 +32,139 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
  * project.
  */
 public class Robot extends TimedRobot {
-  /* Set up our motors */
+
+  // Set up our motor types and assign CAN ID's
+  // VERY IMPORTANT: NEO motors must be configured as brushless!
+  // If a NEO is configured as brushed, it will destroy the motor
   SparkMax driveLeftA = new SparkMax(1,MotorType.kBrushed);
   SparkMax driveLeftB = new SparkMax(3,MotorType.kBrushed);
   SparkMax driveRightA = new SparkMax(4,MotorType.kBrushed);
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
-  //SparkMax launcherMotor = new SparkMax(7, MotorType.kBrushed);
-  SparkMax launcherMotor = new SparkMax(10, MotorType.kBrushless);
-  SparkMax hopperMotor = new SparkMax(6, MotorType.kBrushed);
+  SparkMax launcherMotor; // will be constructed in the initializer
+  SparkMax hopperMotor = new SparkMax(6,MotorType.kBrushed);
+
+  // Build configs
+  SparkMaxConfig configInverted = new SparkMaxConfig();
+  SparkMaxConfig configNormal = new SparkMaxConfig();
+  SparkMaxConfig configLauncher = new SparkMaxConfig();
+  
+  // Calibrate: Motor Voltage Compensation
+  // To enable, set USE_VOLT_COMP to true and 
+  // specify the nominal voltage (usually between 10.0 and 12.0V)
+  // nominal voltage is typically set near minimum voltage, 
+  // to provide consistent performance as battery voltage drops during matches
+  static final boolean USE_VOLT_COMP = true;
+  static final double VOLTS_NOMINAL = 11.0;  
+  
+  // Calibrate: Motor Configuration
+  // VERY IMPORTANT: NEO motors must be configured as brushless!
+  // If a NEO is configured as brushed, it will destroy the motor
+  static final boolean launcherMotorNEO = true; // Set to true if using NEO motor for launcher, false if using brushed motor 
+  static final boolean launcherMotorClosedLoop = false; // Set to true to use closed loop control for launcher motor, false for open loop voltage control
+
+  // Calibrate: Teleop Motor Speeds, Fast and Slow
+  // Percentage of motor speed ONLY SET BETWEEN 0 and 1
+  static final double driveSpeedBoost = 1.0; // fast drive speed
+  static final double driveSpeedNormal = 0.5; // normal drive speed
+
+  //Calibrate: Change bias to offset drift on Motors
+  //Don't set bias outside of .9 to 1.1
+  static final double leftWheelBias = 1;
+
+  // Calibrate: Launch Motor Commands
+  // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
+  // Slow Launch is typically used for autonomous, because fuel is limited
+  // Slow and Fast Launch modes are available by button mapping in Teleop
+  // launcher now configured so positive command -> launch direction
+  static final double slowLaunchSpeed = 0.83; // positive value for slow launch
+  static final double fastLaunchSpeed = 1.0;  // positive value for fast launch
+  static final double launchHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
+  static final double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
+
+  // Calibrate: NEO motor controls
+  static final double slowLaunchRPM = 3300; // target RPM for slow launch mode, if using NEO motor
+  static final double fastLaunchRPM = 5000; // target RPM for fast launch mode, if using NEO motor
+  static final double launchRPMTolerance = 150; // tolerance for considering launcher "at speed", in RPM, if using NEO motor
+
+  // Calibrate: Intake Motor Commands
+  static final double IntakeHopperSpeed = -1.0; // -1.0 value of intake hopper speed
+  static final double EmptyHopperSpeed = 1.0; // 1.0 value of hopper speed for emptying hopper
+  static final double EmptyFrontRPM = -3300;
+
+  // Calibrate: Set robot track width in inches
+  static final double trackwidth = 21.5;
+
+  // Calibrate: Drive Motor commands
+  // These are the initial and final motor command targets
+  // to overcome friction and inertia
+  static final double motorCommand_start = 0.09; // 0 to 0.2
+  static final double motorCommand_stop = 0.09;  // -0.2 to 0.2
+  static final double accel_offset = 0.12; // .12 offset for acceleration
+
+  /* Instance initializer: construct and configure controllers using the SparkMax + SparkMaxConfig API */
+  {
+    // construct launcher according to calibration flag
+    if (launcherMotorNEO) {
+      launcherMotor = new SparkMax(10, MotorType.kBrushless);
+    } else {
+      launcherMotor = new SparkMax(7, MotorType.kBrushed);
+    }
+
+    // Drive config (invert left, brake)
+    configInverted.inverted(true);
+    configInverted.idleMode(IdleMode.kBrake);
+    if (USE_VOLT_COMP) {
+      configInverted.voltageCompensation(VOLTS_NOMINAL);
+    } else {
+      configInverted.disableVoltageCompensation();
+    }
+
+    configNormal.inverted(false);
+    configNormal.idleMode(IdleMode.kBrake);
+    if (USE_VOLT_COMP) {
+      configNormal.voltageCompensation(VOLTS_NOMINAL);
+    } else {
+      configNormal.disableVoltageCompensation();
+    }
+
+    // Launcher config
+    configLauncher.inverted(false);
+    configLauncher.smartCurrentLimit(40);
+    configLauncher.idleMode(IdleMode.kCoast);
+    if (launcherMotorNEO && launcherMotorClosedLoop) {
+      configLauncher
+        .closedLoop    
+          .pid(0, 0, 0) // slot 0
+          .feedForward
+            .kS(0.5) // slot 0 by default
+            .kV(0);
+    }
+    if (USE_VOLT_COMP) {
+      configLauncher.voltageCompensation(VOLTS_NOMINAL);
+    } else {
+      configLauncher.disableVoltageCompensation();
+    }
+    
+  }
+
+  // Initialize the closed loop controller, 
+  // for any motors where we want to actively control speed
+  SparkClosedLoopController launchController = launcherMotor.getClosedLoopController();
 
   // These functions set the speed of the drive motors
   // any bias between the left and right motors is handled by 
   // applying a multiplier to the left motors
   private void setLeftSpeed(double speed)
-  {
-    //Calibrate: Change bias to offset drift on Motors
-    //Don't change bias more than between .9 and 1.1
-    double leftWheelBias = 1;
+  {    
     driveLeftA.set(speed * leftWheelBias);
     driveLeftB.set(speed * leftWheelBias);
-  };
-
+  }
+ 
   private void setRightSpeed(double speed)
   {
     driveRightA.set(speed);
     driveRightB.set(speed);
-  };
+  }
 
   public void setSafetyFault(String message)
   {
@@ -71,7 +179,7 @@ public class Robot extends TimedRobot {
     driveLeftB.set(0.0);
     driveRightA.set(0.0);
     driveRightB.set(0.0);
-    launcherMotor.set(0.0);
+    setLauncherSpeed(0.0);
     hopperMotor.set(0.0);
 
     // Only display message on first call
@@ -81,6 +189,41 @@ public class Robot extends TimedRobot {
     }
   }
 
+  // Helper Function: command launcher with an RPM value
+  // If CIM motor is used for launcher, targetRPM is converted to a motor command using a feedforward model
+  private void setLauncherSpeed(double targetRPM) {
+      
+      // If target RPM is very small, set to zero to prevent motor from trying to hold position
+     if (( Math.abs(targetRPM) < minAbsTargetRPM) || safetyFaultActive) {
+      launcherTargetRPM = 0.0;
+      launcherMotor.set(launcherTargetRPM);
+       return;
+     } else {
+      launcherTargetRPM = targetRPM;
+     }
+ 
+     // If using NEO with closed loop control, command target RPM directly
+     if (launcherMotorNEO) {
+       
+       if (launcherMotorClosedLoop) {
+         // Closed loop control with NEO
+         launchController.setSetpoint(targetRPM, ControlType.kVelocity);
+       } else {
+         // Open loop control with NEO, using a feedforward model to convert target RPM to motor command
+         double cmd = (targetRPM + 33.364) / 3849.5;
+         cmd = Math.max(-1.0, Math.min(1.0, cmd));
+         launcherMotor.set(cmd);
+       }
+     
+     // If using CIM, use a feedforward model to convert target RPM to motor command
+     } else {
+       double cmd = (targetRPM + 33.364) / 3849.5;
+       // clamp to safe percent range
+       cmd = Math.max(-1.0, Math.min(1.0, cmd));
+       launcherMotor.set(cmd);
+     }
+   }
+  
   private double k_MotorSpeed(double motorSpeed) {
 
     // Calibrate: factor k = speed in inches per second / motor speed command
@@ -118,7 +261,12 @@ public class Robot extends TimedRobot {
   boolean DisplaySafeState = true;
   double driveFactor = 0.6;
   double autoStart = 0;
-  private static final double EPS = 0.01; // deadband: treat |v| < EPS as zero
+  double currentRPM = 0;
+  boolean isAtSpeed = false;
+  double launcherTargetRPM = 0.0;
+      
+  // Minimum absolute target RPM considered "non-zero" for closed loop motor commands
+  private static final double minAbsTargetRPM = 500;
   
   // print a message to the driver station, at a lower rate
   private int consolePrintCounter = 0;
@@ -129,33 +277,6 @@ public class Robot extends TimedRobot {
    }
   }
 
-  // Calibrate: Motor Voltage Compensation
-  // To enable, set USE_VOLT_COMP to true and 
-  // specify the nominal voltage (usually between 10.0 and 12.0V)
-  // nominal voltage is typically set near minimum voltage, 
-  // to provide consistent performance as battery voltage drops during matches
-  private static final boolean USE_VOLT_COMP = true;
-  private static final double VOLTS_NOMINAL = 11.0;  
-  
-  // Calibrate: Launch Motor Commands
-  // Two launch modes are supported: slow launch for better accuracy and fast launch for high delivery speeds
-  // Slow Launch is typically used for autonomous, because fuel is limited
-  // Slow and Fast Launch modes are available by button mapping in Teleop
-  // launcher now configured so positive command -> launch direction
-  double slowLaunchSpeed = 0.83; // positive value for slow launch
-  double fastLaunchSpeed = 1.0;  // positive value for fast launch
-  double launchHopperSpeed = 0.8; // 0.6 value of slow hopper speed for slow launch
-  double unstickHopperSpeed = -1.0; // -1.0 value of hopper speed for unsticking fuel
-
-  // Calibrate: Intake Motor Commands
-  double IntakeFrontSpeed = 0.75; // -0.75 value of intake front speed
-  double IntakeHopperSpeed = -1.0; // -1.0 value of intake hopper speed
-  double EmptyFrontSpeed = -1.0; // 0.75 value of front speed for emptying hopper
-  double EmptyHopperSpeed = 1.0; // 1.0 value of hopper speed for emptying hopper
-
-  SparkMaxConfig configInverted = new SparkMaxConfig();
-  SparkMaxConfig configNormal = new SparkMaxConfig();
-  SparkMaxConfig configLauncher = new SparkMaxConfig();
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
@@ -165,47 +286,15 @@ public class Robot extends TimedRobot {
     /* Set up our motor settings*/
 
     //CameraServer.startAutomaticCapture(0);
-
-    // Sets the settings on the SparkMax configs and applies them to the motors
-    configInverted.inverted(true);
-    configInverted.idleMode(IdleMode.kBrake);
-    if (USE_VOLT_COMP) {
-      configInverted.voltageCompensation(VOLTS_NOMINAL);
-    } else {
-      configInverted.disableVoltageCompensation();
-    }
-    configNormal.inverted(false);
-    configNormal.idleMode(IdleMode.kBrake);
-    if (USE_VOLT_COMP) {
-      configNormal.voltageCompensation(VOLTS_NOMINAL);
-    } else {
-      configNormal.disableVoltageCompensation();
-    }
-    // Launcher uses COAST idle mode
-    configLauncher.inverted(true);
-    configLauncher.smartCurrentLimit(40);
-    configLauncher.idleMode(IdleMode.kCoast);
-    if (USE_VOLT_COMP) {
-      configLauncher.voltageCompensation(VOLTS_NOMINAL);
-    } else {
-      configLauncher.disableVoltageCompensation();
-    }
-    
-    // Configure the motors with the specified settings
+     
+  // Configure the motors with the specified settings
     driveLeftA.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveLeftB.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveRightA.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     driveRightB.configure(configNormal, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     launcherMotor.configure(configLauncher, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
     hopperMotor.configure(configInverted, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
- 
-    // Populate autonomous chooser (shows as a dropdown on SmartDashboard/Shuffleboard)
-    //autoChooser.setDefaultOption("Center (default)", startLoc.CENTER);
-    //autoChooser.addOption("Test", startLoc.TEST);
-    //autoChooser.addOption("Left", startLoc.LEFT);
-    //autoChooser.addOption("Right", startLoc.RIGHT);
-    //SmartDashboard.putData("Auto Routine", autoChooser);
-  }
+   }
 
   /**
    * This function is called every 20 ms, no matter the mode. Use this for items like diagnostics
@@ -215,7 +304,16 @@ public class Robot extends TimedRobot {
    * SmartDashboard integrated updating.
    */
   @Override
-  public void robotPeriodic() {}
+  public void robotPeriodic() {
+    // Get the current velocity from the encoder
+    // Check if we are close enough to the target
+    if (launcherMotorClosedLoop) {
+      currentRPM = launcherMotor.getEncoder().getVelocity();
+      isAtSpeed = Math.abs(currentRPM - launcherTargetRPM) < launchRPMTolerance;
+    } else {
+      isAtSpeed = true;
+    }
+  }
 
   /* Autonomous Mode Global Definitions */
   private double loop_s; 
@@ -236,32 +334,12 @@ public class Robot extends TimedRobot {
   private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step_up, M_step_down;
   private int stepIdx;
 
-  // Calibrate: Set robot track width in inches
-  private double trackwidth = 21.5;
-
-  // Calibrate: Drive Motor commands
-  // These are the initial and final motor command targets
-  // to overcome friction and inertia
-  private double motorCommand_start = 0.09; // 0 to 0.2
-  private double motorCommand_stop = 0.09;  // -0.2 to 0.2
-  private double accel_offset = 0.12; // .12 offset for acceleration
-
-  /*
-  This autonomous (along with the chooser code above) shows how to select between different
-  autonomous modes using the dashboard. The sendable chooser code works with the Java
-  SmartDashboard. If you prefer the LabVIEW Dashboard, remove all of the chooser code and
-  uncomment the getString line to get the auto name from the text box below the Gyro
-
-  You can add additional auto modes by adding additional comparisons to the switch structure
-  below with additional strings. If using the SendableChooser make sure to add them to the
-  chooser code above as well.
-   */
 
   @Override
   public void autonomousInit() {
-
+ 
     // Spin up the launcher
-    launcherMotor.set(slowLaunchSpeed);
+    setLauncherSpeed(slowLaunchRPM);
 
     // Calibrate: Set the starting location
     startLoc routine = startLoc.CENTER;
@@ -477,7 +555,7 @@ public class Robot extends TimedRobot {
       return; // Skip the rest of the function
     }
     else {
-      launcherMotor.set(slowLaunchSpeed); // Keep launcher spinning during autonomous
+      setLauncherSpeed(slowLaunchRPM); // Keep launcher spinning during autonomous
     }
 
     // Check for end of routine
@@ -516,28 +594,29 @@ public class Robot extends TimedRobot {
 
       /* Convert negative distance to direction */
       forward = true;
-      if (Magnitude[stepIdx] < 0) {
+      double stepMagnitude = Magnitude[stepIdx];
+      if (stepMagnitude < 0) {
         // backwards
         forward = false;
+        stepMagnitude = -stepMagnitude; // use absolute value for calculations
       }
-      Magnitude[stepIdx] = Math.abs(Magnitude[stepIdx]);
 
-      System.out.println("Magnitude: " + Magnitude[stepIdx]);
+      System.out.println("Magnitude: " + stepMagnitude);
       System.out.println("Motor Command: " + MotorCommands[stepIdx]);
-
+ 
       /* Convert motor speed command to inches per second */
       double v_command_ips = k * MotorCommands[stepIdx];
-
+ 
       //System.out.println("Velocity Command: " + v_command_ips + " in/s");
-
+ 
       /* Define wheel distance to travel */
       switch (Mode[stepIdx]) {
           case DRIVE:
           
             /* DRIVE works in terms of distance
             (both wheels moving together) */
-            distance = Magnitude[stepIdx];
-
+            distance = stepMagnitude;
+ 
             /* Calibrate: Max without prevent slipping 
             acceleration rate for DRIVE steps
             should be between 100 and 600 */
@@ -545,35 +624,35 @@ public class Robot extends TimedRobot {
             break;
           
           case TURN:
-
+ 
             /* Calibrate: Max without prevent slipping 
             acceleration rate for TURN steps
             should be between 100 and 600 */
             accel_rate = 200;
-
+ 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
             // Calibrate Turn Adjustment
-            distance = trackwidth * Math.PI * 1.15 * Magnitude[stepIdx] / 360.0;
+            distance = trackwidth * Math.PI * 1.15 * stepMagnitude / 360.0;
             break;
-
+ 
           case EJECT:
             /* No ramp needed for ejecting */
             accel_rate = 9999;
-
+ 
             /* EJECT magnitude is not actually distance, but time instead */
-            distance = Magnitude[stepIdx];            
+            distance = stepMagnitude;            
             break;
-
+ 
           case PAUSE:
           
             /* PAUSE is not actually distance, but time instead */
-            distance = Magnitude[stepIdx];
+            distance = stepMagnitude;
             
             /* Not applicable to PAUSE */
             accel_rate = 9999;
             break;
-
+ 
         default:
           distance = Magnitude[stepIdx];
           accel_rate = 9999;
@@ -622,10 +701,10 @@ public class Robot extends TimedRobot {
 
       /* If drive mode is EJECT, override time with EJECT time */
       if (Mode[stepIdx] == driveMode.EJECT) {
-        t_total_s = Magnitude[stepIdx];
+        t_total_s = stepMagnitude;
       } else if (Mode[stepIdx] == driveMode.PAUSE) { // If drive mode is PAUSE, override time with PAUSE time
-        t_total_s = Magnitude[stepIdx];
-      }
+        t_total_s = stepMagnitude;
+       }
 
       /* Error if arbitrated motor speed is 0 */
       if ((t_total_s <= 0) || (t_total_s > t_max_autonomous)) {
@@ -783,8 +862,8 @@ public class Robot extends TimedRobot {
       if (stepTime >= t_total_s){
         safeState(); // Go to a safe state
         DisplaySafeState = true; // reset safe state display        
+        System.out.println("Step " + (stepIdx+1) + " Complete");     
         stepIdx = stepIdx + 1; // Go to the next step (in the next loop)
-        System.out.println("Step " + (stepIdx+1) + " Complete");      
       }
     }
   }
@@ -798,12 +877,11 @@ public class Robot extends TimedRobot {
   public void teleopPeriodic() {
     /* Driver contols */
 
-//Percentage of motor speed ONLY SET BETWEEN 0 and 1
-//Calibrate: Teleop Motor Speeds, Fast and Slow
+//Teleop Motor Speeds, Fast and Slow
     if(driverController.getLeftBumper()==true) {
-      driveFactor = 1; // 0.7
+      driveFactor = driveSpeedBoost; 
     } else {
-      driveFactor= 0.5; // 0.5
+      driveFactor= driveSpeedNormal; 
     }
     double forward = driveFilter.calculate(driverController.getRawAxis(1)); // y-axis, left joystick
     double turn = turnFilter.calculate(driverController.getRawAxis(4)); // x-axis, right joystick
@@ -833,7 +911,6 @@ public class Robot extends TimedRobot {
     //Turning speed Control only change in the IF commands
     double frontSpeed = 0;
     double backSpeed = 0;
-    double launchSpeed = 0;
     //^^^^ Dont change this one
     //launcherMotor.set(opController.getTwist());
 
@@ -843,26 +920,29 @@ public class Robot extends TimedRobot {
   // unstick: launch motor (0) | hopper motor (-)
   // empty hopper: launch motor (+) | hopper motor (+)
 
-    // calculate launch speed
+    // convert joystick flipper axis to a launch speed multiplier between 0 and 1
     double launchSpeedMult =  -0.5 * opController.getRawAxis(3) + 0.5; // convert axis to 0 to 1
     
     // if the launch speed multiplier is below a certain threshold, turn launcher off
-    if (launchSpeedMult < 0.2) {
-      launchSpeed = 0;
+    double offDeadband = 0.1; // deadband threshold for launcher off, can be adjusted based on joystick flipper sensitivity
+    if (launchSpeedMult < offDeadband) {
+      launcherTargetRPM = 0;
     }
     // set the launch speed
     else {
-      launchSpeed = slowLaunchSpeed + launchSpeedMult * (fastLaunchSpeed - slowLaunchSpeed);
+      double norm = (launchSpeedMult - offDeadband) / (1.0 - offDeadband);
+      norm = Math.max(0.0, Math.min(1.0, norm)); // clamp just in case
+      launcherTargetRPM = slowLaunchRPM + norm * (fastLaunchRPM - slowLaunchRPM);
     }
 
     // main telop button controls, priority from top to bottom (if multiple buttons pressed)
     if (opController.getRawButton(2))
     {
       // launch speed adjustment, between slow and fast launch speeds, based on the joystick flipper axis
-      frontSpeed = launchSpeed;
+      frontSpeed = launcherTargetRPM;
       backSpeed = launchHopperSpeed;
       // If launch speed is zero while button is held, print a throttled warning to prompt flipper adjustment
-      if (launchSpeed == 0.0) {
+      if (launcherTargetRPM == 0.0) {
         printThrottled("Warning: No launch! Turn on joystick flipper.");
       }
     }
@@ -870,30 +950,37 @@ public class Robot extends TimedRobot {
     // trigger to intake
     else if(opController.getRawButton(1))
     {
-      frontSpeed = IntakeFrontSpeed;
+      frontSpeed = launcherTargetRPM;
       backSpeed = IntakeHopperSpeed;
     }
     else if (opController.getRawButton(3))
     {
       // Unstick
-      frontSpeed = launchSpeed;
+      frontSpeed = launcherTargetRPM;
       backSpeed = unstickHopperSpeed;
     }
     else if (opController.getRawButton(5))
     {
-      // Empty Hopper
-      frontSpeed = EmptyFrontSpeed;
-      backSpeed = EmptyHopperSpeed;
+
+      // Reverse launcher to empty hopper
+      frontSpeed = EmptyFrontRPM;
+
+      // Wait to empty hopper until launcher has reversed direction, to prevent jamming
+      if (isAtSpeed) {
+        backSpeed = EmptyHopperSpeed;  
+      }
+      
+      
     }
     else
     {
       // Action for no buttons pressed
       // Do not change away from 0 
-      frontSpeed = launchSpeed;
+      frontSpeed = launcherTargetRPM;
       backSpeed = 0;
     }
   
-    launcherMotor.set(frontSpeed);
+    setLauncherSpeed(frontSpeed);
     hopperMotor.set(backSpeed);
 
     /* Motor Test Code, comment out when not testing */
