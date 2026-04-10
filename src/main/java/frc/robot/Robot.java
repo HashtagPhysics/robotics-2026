@@ -402,12 +402,12 @@ public class Robot extends TimedRobot {
           2,
           shootDist - startDist,
           emptyHopperTime,
-          120 - (shootDist - startDist) + 12,
-          -276 - 2,
-          -48 - 12,
+          132 - (shootDist - startDist),
+          -278 + 35,
+          -60 - 48,
           3,
-          48,
-          276 - 6,
+          48 + 24,
+          270,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
