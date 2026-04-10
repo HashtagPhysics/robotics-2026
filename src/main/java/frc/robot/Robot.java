@@ -359,6 +359,7 @@ public class Robot extends TimedRobot {
     double startDist; // distance from back of robot to center of hub, different for each routine
     double emptyHopperTime = 5.5; // time to empty hopper in seconds
     double autoDriveSpeed = 0.5; // motor command for drive
+    double autoSpinUp_s = 2;  // 2 seconds for autonomous spin up
 
 
     // 270 = 180 degrees
@@ -401,15 +402,15 @@ public class Robot extends TimedRobot {
         }; 
           
         Magnitude = new double[] { 
-          2,
+          autoSpinUp_s,
           shootDist - startDist,
           emptyHopperTime,
-          132 - (shootDist - startDist) - 8,
-          -278 + 40, // was + 35
-          -60 - 48,
+          116 - (shootDist - startDist),
+          -238
+          -108,
           3,
           48,
-          202, // was 270
+          212,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
@@ -447,16 +448,16 @@ public class Robot extends TimedRobot {
         }; 
           
         Magnitude = new double[] { 
-          2, // pause for 1 second at the start to allow launcher to spin up
+          autoSpinUp_s, // pause at the start to allow launcher to spin up
           shootDist - startDist,
           emptyHopperTime,
           -90,
           127,
           -90,
           -93,
-          4,
+          3,
           48,
-          138,
+          212,
           -(120-(shootDist - startDist)),
           emptyHopperTime
 
@@ -498,7 +499,7 @@ public class Robot extends TimedRobot {
         }; 
           
         Magnitude = new double[] { 
-          2,
+          autoSpinUp_s,
           shootDist - startDist,
           emptyHopperTime,
           33-(shootDist - startDist),
@@ -506,9 +507,9 @@ public class Robot extends TimedRobot {
           205,
           -90,
           -93,
-          4,
+          3,
           48,
-          138,
+          212,
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
