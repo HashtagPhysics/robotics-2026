@@ -986,7 +986,11 @@ public class Robot extends TimedRobot {
       // Action for no buttons pressed
       // Do not change away from 0 
       frontSpeed = launcherTargetRPM;
-      backSpeed = 0;
+      if (launchSpeedMult < offDeadband) {
+        backSpeed = 0;
+      } else {
+        backSpeed = IntakeHopperSpeed;
+      }
     }
   
     setLauncherSpeed(frontSpeed);
