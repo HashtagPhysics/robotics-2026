@@ -322,7 +322,9 @@ public class Robot extends TimedRobot {
       timerA_Start = Timer.getFPGATimestamp();
     } else {
       timerA = Timer.getFPGATimestamp() - timerA_Start;
+      printThrottled("Timer A: " + timerA);
     }
+    prevA = driverController.getRawButton(1);
 
   }
 
@@ -912,30 +914,29 @@ public class Robot extends TimedRobot {
     double driveRightPower;
 
     // Turn right 180 degrees in place, mapped to A button
-    if (driverController.getRawButton(1) && timerA < 0.8) {
-      driveLeftPower = 1;
-      driveRightPower = -1;
-      driveFactor = driveSpeedBoost;
-    }
+    if (driverController.getRawButton(1) && timerA < 0.5) {
+      setLeftSpeed(driveSpeedBoost);
+      setRightSpeed(-driveSpeedBoost);
+    } else {
 
-    // Drive Forward
-    if (driverController.getRawButton(6))
-    {
-      driveLeftPower = forward + turn;
-      driveRightPower = forward - turn;
-      setLeftSpeed(driveLeftPower * driveFactor);
-      setRightSpeed(driveRightPower * driveFactor);
+      // Drive Forward
+      if (driverController.getRawButton(6))
+      {
+        driveLeftPower = forward + turn;
+        driveRightPower = forward - turn;
+        setLeftSpeed(driveLeftPower * driveFactor);
+        setRightSpeed(driveRightPower * driveFactor);
+      }
+      
+      // Drive in reverse with reversed controls
+      else
+      {
+        driveLeftPower = forward - turn;
+        driveRightPower = forward + turn;
+        setLeftSpeed(driveLeftPower * driveFactor * -1);
+        setRightSpeed(driveRightPower * driveFactor * -1);
+      }
     }
-    
-    // Drive in reverse with reversed controls
-    else
-    {
-      driveLeftPower = forward - turn;
-      driveRightPower = forward + turn;
-      setLeftSpeed(driveLeftPower * driveFactor * -1);
-      setRightSpeed(driveRightPower * driveFactor * -1);
-    }
-
     /* Op controls */
 
     //Turning speed Control only change in the IF commands
