@@ -264,6 +264,9 @@ public class Robot extends TimedRobot {
   double currentRPM = 0;
   boolean isAtSpeed = false;
   double launcherTargetRPM = 0.0;
+  boolean prevA = false;
+  double timerA = 0;
+  double timerA_Start;
       
   // Minimum absolute target RPM considered "non-zero" for closed loop motor commands
   private static final double minAbsTargetRPM = 500;
@@ -313,6 +316,14 @@ public class Robot extends TimedRobot {
     } else {
       isAtSpeed = true;
     }
+
+    // A button rising edge detect, start timer
+    if (driverController.getRawButton(1) && !prevA) {
+      timerA_Start = Timer.getFPGATimestamp();
+    } else {
+      timerA = Timer.getFPGATimestamp() - timerA_Start;
+    }
+
   }
 
   /* Autonomous Mode Global Definitions */
@@ -899,6 +910,13 @@ public class Robot extends TimedRobot {
     double turn = turnFilter.calculate(driverController.getRawAxis(4)); // x-axis, right joystick
     double driveLeftPower;
     double driveRightPower;
+
+    // Turn right 180 degrees in place, mapped to A button
+    if (driverController.getRawButton(1) && timerA < 0.8) {
+      driveLeftPower = 1;
+      driveRightPower = -1;
+      driveFactor = driveSpeedBoost;
+    }
 
     // Drive Forward
     if (driverController.getRawButton(6))
