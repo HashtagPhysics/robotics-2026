@@ -361,6 +361,8 @@ public class Robot extends TimedRobot {
     double autoDriveSpeed = 0.5; // motor command for drive
 
 
+    // 270 = 180 degrees
+
     // Calibrate Autonomous Routines
     switch (routine) {
       case TEST: {
@@ -402,12 +404,12 @@ public class Robot extends TimedRobot {
           2,
           shootDist - startDist,
           emptyHopperTime,
-          132 - (shootDist - startDist),
-          -278 + 35,
+          132 - (shootDist - startDist) - 8,
+          -278 + 40, // was + 35
           -60 - 48,
           3,
-          48 + 24,
-          270,
+          48,
+          202, // was 270
           -(120-(shootDist - startDist)),
           emptyHopperTime
         };
