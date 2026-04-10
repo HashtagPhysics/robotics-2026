@@ -342,11 +342,11 @@ public class Robot extends TimedRobot {
     setLauncherSpeed(slowLaunchRPM);
 
     // Calibrate: Set the starting location
-    startLoc routine = startLoc.CENTER;
+    startLoc routine = startLoc.RIGHT;
 
     System.out.println(routine + " Routine Loaded");
 
-    // Reset safety faults
+    // Rm eset safety faults
     safetyFaultActive = false;
 
     // Initialize the routine step counter
@@ -355,7 +355,7 @@ public class Robot extends TimedRobot {
     //int angleOnWall = 30;
     //double disFromCenter = 17.5 + Math.cos(angleOnWall) * 17; // distance verticaly from tower
     //double disFromTower = Math.sqrt(Math.pow(Math.sqrt(Math.pow(17, 2) + Math.pow(Math.cos(30) * 17, 2)) + 24, 2) + Math.pow(disFromCenter, 2));
-    double shootDist = 54; // shooting distance in inches, from the back of the robot (shoots backwards)
+    double shootDist = 69; // shooting distance in inches, from the back of the robot (shoots backwards)
     double startDist; // distance from back of robot to center of hub, different for each routine
     double emptyHopperTime = 5.5; // time to empty hopper in seconds
     double autoDriveSpeed = 0.5; // motor command for drive
@@ -385,19 +385,21 @@ public class Robot extends TimedRobot {
       case RIGHT: {
         startDist = 47;
         Mode = new driveMode[] {
-           driveMode.DRIVE,
-           driveMode.EJECT,
-           driveMode.DRIVE,
-           driveMode.TURN,
-           driveMode.DRIVE,
-           driveMode.PAUSE,
-           driveMode.DRIVE,
-           driveMode.TURN,
-           driveMode.DRIVE,
-           driveMode.EJECT
+          driveMode.PAUSE,
+          driveMode.DRIVE,
+          driveMode.EJECT,
+          driveMode.DRIVE,
+          driveMode.TURN,
+          driveMode.DRIVE,
+          driveMode.PAUSE,
+          driveMode.DRIVE,
+          driveMode.TURN,
+          driveMode.DRIVE,
+          driveMode.EJECT
         }; 
           
         Magnitude = new double[] { 
+          2,
           shootDist - startDist,
           emptyHopperTime,
           120 - (shootDist - startDist) + 12,
@@ -411,6 +413,7 @@ public class Robot extends TimedRobot {
         };
         MotorCommands = new double[] { 
           autoDriveSpeed, 
+          autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed,
@@ -442,7 +445,7 @@ public class Robot extends TimedRobot {
         }; 
           
         Magnitude = new double[] { 
-          1, // pause for 1 second at the start to allow launcher to spin up
+          2, // pause for 1 second at the start to allow launcher to spin up
           shootDist - startDist,
           emptyHopperTime,
           -90,
@@ -469,7 +472,7 @@ public class Robot extends TimedRobot {
           autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed,
-
+          autoDriveSpeed
         };
         break;
 
@@ -477,21 +480,23 @@ public class Robot extends TimedRobot {
       case LEFT: {
         startDist = 47;
         Mode = new driveMode[] {
-           driveMode.DRIVE,
-           driveMode.EJECT,
-           driveMode.DRIVE,
-           driveMode.TURN,
-           driveMode.DRIVE,
-           driveMode.TURN,
-           driveMode.DRIVE,
-           driveMode.PAUSE,
-           driveMode.DRIVE,
-           driveMode.TURN,
-           driveMode.DRIVE,
-           driveMode.EJECT
+          driveMode.PAUSE,
+          driveMode.DRIVE,
+          driveMode.EJECT,
+          driveMode.DRIVE,
+          driveMode.TURN,
+          driveMode.DRIVE,
+          driveMode.TURN,
+          driveMode.DRIVE,
+          driveMode.PAUSE,
+          driveMode.DRIVE,
+          driveMode.TURN,
+          driveMode.DRIVE,
+          driveMode.EJECT
         }; 
           
         Magnitude = new double[] { 
+          2,
           shootDist - startDist,
           emptyHopperTime,
           33-(shootDist - startDist),
@@ -507,6 +512,7 @@ public class Robot extends TimedRobot {
         };
         MotorCommands = new double[] { 
           autoDriveSpeed, 
+          autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed,
           autoDriveSpeed,
