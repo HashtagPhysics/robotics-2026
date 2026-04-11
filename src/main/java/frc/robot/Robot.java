@@ -317,14 +317,14 @@ public class Robot extends TimedRobot {
       isAtSpeed = true;
     }
 
-    // A button rising edge detect, start timer
-    if (driverController.getRawButton(1) && !prevA) {
-      timerA_Start = Timer.getFPGATimestamp();
-    } else {
-      timerA = Timer.getFPGATimestamp() - timerA_Start;
-      printThrottled("Timer A: " + timerA);
-    }
-    prevA = driverController.getRawButton(1);
+    // // A button rising edge detect, start timer
+    // if (driverController.getRawButton(1) && !prevA) {
+    //   timerA_Start = Timer.getFPGATimestamp();
+    // } else {
+    //   timerA = Timer.getFPGATimestamp() - timerA_Start;
+    //   printThrottled("Timer A: " + timerA);
+    // }
+    // //prevA = driverController.getRawButton(1);
 
   }
 
@@ -355,7 +355,7 @@ public class Robot extends TimedRobot {
     setLauncherSpeed(slowLaunchRPM);
 
     // Calibrate: Set the starting location
-    startLoc routine = startLoc.RIGHT;
+    startLoc routine = startLoc.CENTER;
 
     System.out.println(routine + " Routine Loaded");
 
