@@ -953,7 +953,8 @@ public class Robot extends TimedRobot {
 
     // convert joystick flipper axis to a launch speed multiplier between 0 and 1
     double launchSpeedMult =  -0.5 * opController.getRawAxis(3) + 0.5; // convert axis to 0 to 1
-    
+    //double launchSpeedMult = 0; // parade mode
+
     // if the launch speed multiplier is below a certain threshold, turn launcher off
     double offDeadband = 0.1; // deadband threshold for launcher off, can be adjusted based on joystick flipper sensitivity
     if (launchSpeedMult < offDeadband) {
